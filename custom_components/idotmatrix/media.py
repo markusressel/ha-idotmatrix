@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
 import logging
 import os
 import tempfile
 from typing import Any
 
 from homeassistant.components import media_source
+from homeassistant.components.http.auth import async_sign_path
 from homeassistant.components.media_player import MediaClass
-from homeassistant.components.media_player.browse_media import async_process_play_media_url
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -24,6 +25,7 @@ ATTR_MEDIA_CONTENT_ID = "media_content_id"
 
 _LOGGER = logging.getLogger(__name__)
 
+SIGNED_URL_LIFETIME = timedelta(minutes=5)
 MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif"}
 
@@ -57,12 +59,15 @@ async def async_fetch(hass: HomeAssistant, source: Source) -> tuple[str, bool]:
             play_media = await media_source.async_resolve_media(hass, source[ATTR_MEDIA_CONTENT_ID], None)
         except media_source.MediaSourceError as ex:
             raise _error("download_failed", url=source[ATTR_MEDIA_CONTENT_ID], error=str(ex)) from ex
-        url = async_process_play_media_url(hass, play_media.url)
+        url = play_media.url
     else:
         url = source[ATTR_URL]
-        if url.startswith("/"):
-            # f.e. the cover of a media player, which is served by Home Assistant itself
-            url = get_url(hass) + url
+
+    if url.startswith("/"):
+        # f.e. an image entity or the cover of a media player, which Home Assistant serves itself. Some of them only
+        # answer a request with a token or signature (the image media source gives the address without one, which
+        # makes Home Assistant itself answer 403), so the path is signed.
+        url = get_url(hass) + async_sign_path(hass, url, SIGNED_URL_LIFETIME, use_content_user=True)
 
     session = async_get_clientsession(hass)
     try:

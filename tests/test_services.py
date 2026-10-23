@@ -200,10 +200,11 @@ async def test_show_image_from_a_path_of_home_assistant(
     with (
         patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session),
         patch("custom_components.idotmatrix.media.get_url", return_value="http://ha.local:8123"),
+        patch("custom_components.idotmatrix.media.async_sign_path", side_effect=lambda hass, path, *a, **kw: path + "&authSig=1"),
     ):
         await _call(hass, "show_image", url="/api/media_player_proxy/media_player.x?token=abc")
 
-    session.get.assert_called_once_with("http://ha.local:8123/api/media_player_proxy/media_player.x?token=abc")
+    session.get.assert_called_once_with("http://ha.local:8123/api/media_player_proxy/media_player.x?token=abc&authSig=1")
     client.image.show_image_file.assert_awaited_once()
 
 
@@ -216,10 +217,8 @@ async def test_show_image_from_a_media_source(hass: HomeAssistant, setup: MockCo
         patch(
             "custom_components.idotmatrix.media.media_source.async_resolve_media", AsyncMock(return_value=play_media)
         ) as resolve,
-        patch(
-            "custom_components.idotmatrix.media.async_process_play_media_url",
-            side_effect=lambda hass, url: f"http://ha.local:8123{url}?authSig=1",
-        ),
+        patch("custom_components.idotmatrix.media.get_url", return_value="http://ha.local:8123"),
+        patch("custom_components.idotmatrix.media.async_sign_path", side_effect=lambda hass, path, *a, **kw: path + "?authSig=1"),
     ):
         await _call(hass, "show_image", media_content_id="media-source://media_source/local/a.png")
 
@@ -355,7 +354,8 @@ async def test_media_picker_value_is_accepted(hass: HomeAssistant, setup: MockCo
     with (
         patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session),
         patch("custom_components.idotmatrix.media.media_source.async_resolve_media", AsyncMock(return_value=play_media)),
-        patch("custom_components.idotmatrix.media.async_process_play_media_url", side_effect=lambda hass, url: f"http://x{url}"),
+        patch("custom_components.idotmatrix.media.get_url", return_value="http://x"),
+        patch("custom_components.idotmatrix.media.async_sign_path", side_effect=lambda hass, path, *a, **kw: path),
     ):
         await _call(
             hass,
@@ -386,3 +386,30 @@ async def test_broken_picture_is_reported(hass: HomeAssistant, setup: MockConfig
     with patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session):
         with pytest.raises(HomeAssistantError, match="cannot identify"):
             await _call(hass, "show_image", url="https://example.com/a.png")
+
+async def test_image_entity_url_is_signed(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    """/api/image_proxy answers 403 without a token or signature."""
+    session = _session()
+
+    with (
+        patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session),
+        patch("custom_components.idotmatrix.media.get_url", return_value="http://ha.local:8123"),
+    ):
+        await _call(hass, "show_image", url="/api/image_proxy/image.cover")
+
+    url = session.get.call_args.args[0]
+    assert url.startswith("http://ha.local:8123/api/image_proxy/image.cover?authSig=")
+
+
+async def test_image_entity_url_is_signed(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    """/api/image_proxy answers 403 without a token or signature."""
+    session = _session()
+
+    with (
+        patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session),
+        patch("custom_components.idotmatrix.media.get_url", return_value="http://ha.local:8123"),
+    ):
+        await _call(hass, "show_image", url="/api/image_proxy/image.cover")
+
+    url = session.get.call_args.args[0]
+    assert url.startswith("http://ha.local:8123/api/image_proxy/image.cover?authSig=")
