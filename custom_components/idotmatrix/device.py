@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import time
 import logging
 from typing import Any
 
@@ -23,7 +24,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_call_later
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, HEARTBEAT_INTERVAL
+from .const import CLOCK_STYLES, DOMAIN, HEARTBEAT_INTERVAL, MODE_CLOCK, MODE_CONTENT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,11 +40,23 @@ class DeviceState:
 
     is_on: bool = True
     brightness: int = 255  # 1-255
-    rgb_color: tuple[int, int, int] | None = None
-    effect: str | None = None
     flipped: bool = False
-    clock_style: str | None = None
-    music_sync: str | None = None
+    mode: str | None = None  # what is shown, one of the MODE_ constants
+
+    rgb_color: tuple[int, int, int] | None = None  # the last color of the main light
+    effect: str | None = None  # the effect, if the mode is MODE_EFFECT
+
+    clock_style: str = "rgb_swipe_outline"
+    clock_show_date: bool = True
+    clock_hour24: bool = True
+    clock_color: tuple[int, int, int] = (255, 255, 255)
+
+    music_scene: str | None = None
+
+    night_enabled: bool = False
+    night_start: time = time(22, 0)
+    night_end: time = time(6, 0)
+    night_brightness: int = 10  # percent
 
 
 class IDotMatrixDevice:
@@ -213,6 +226,53 @@ class IDotMatrixDevice:
         """Calls the listener when the assumed state changed."""
         self._listeners.append(listener)
         return lambda: self._listeners.remove(listener)
+
+    @callback
+    def async_content_changed(self, mode: str = MODE_CONTENT) -> None:
+        """Something was shown, so the screen is on and what was assumed before is not shown anymore."""
+        self.state.is_on = True
+        self.state.mode = mode
+        self.async_state_changed()
+
+    async def async_show_clock(self) -> None:
+        """Shows the clock with the settings of the clock."""
+        state = self.state
+        await self.call(
+            self.client.clock.show(
+                CLOCK_STYLES[state.clock_style],
+                show_date=state.clock_show_date,
+                hour24=state.clock_hour24,
+                color=state.clock_color,
+            )
+        )
+        self.async_content_changed(MODE_CLOCK)
+
+    async def async_update_clock(self, **settings: Any) -> None:
+        """
+        Changes settings of the clock (style, show_date, hour24, color). The display only changes if the clock is
+        shown, otherwise the settings are kept for the next time the clock is shown.
+        """
+        for name, value in settings.items():
+            setattr(self.state, f"clock_{name}", value)
+        if self.state.mode == MODE_CLOCK:
+            await self.async_show_clock()
+        else:
+            self.async_state_changed()
+
+    async def async_apply_night_mode(self) -> None:
+        """Sends the settings of the night mode (the display is dimmed between the two times)."""
+        state = self.state
+        await self.call(
+            self.client.eco.set_mode(
+                enabled=state.night_enabled,
+                start_hour=state.night_start.hour,
+                start_minute=state.night_start.minute,
+                end_hour=state.night_end.hour,
+                end_minute=state.night_end.minute,
+                eco_brightness=state.night_brightness,
+            )
+        )
+        self.async_state_changed()
 
     @callback
     def async_state_changed(self) -> None:

@@ -8,7 +8,6 @@ import os
 import tempfile
 from typing import TYPE_CHECKING, Any
 
-from idotmatrix.modules.clock import ClockStyle
 from idotmatrix.modules.effect import EffectStyle
 from idotmatrix.modules.text import TextColorMode, TextMode
 from idotmatrix.util.image_utils import ResizeMode
@@ -19,7 +18,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv, entity_platform
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DOMAIN
+from .const import CLOCK_STYLES, DOMAIN, MODE_EFFECT, MODE_MUSIC
 
 if TYPE_CHECKING:
     from .light import IDotMatrixLight
@@ -30,7 +29,6 @@ ATTR_URL = "url"
 RESIZE_MODES = {"fit": ResizeMode.FIT, "fill": ResizeMode.FILL, "stretch": ResizeMode.STRETCH}
 TEXT_MODES = {mode.name.lower(): mode for mode in TextMode}
 TEXT_COLOR_MODES = {mode.name.lower(): mode for mode in TextColorMode}
-CLOCK_STYLES = {style.name.lower(): style for style in ClockStyle}
 EFFECT_STYLES = {style.name.lower(): style for style in EffectStyle}
 
 RGB = vol.All(vol.ExactSequence((cv.byte, cv.byte, cv.byte)), vol.Coerce(tuple))
@@ -113,7 +111,7 @@ async def _show_image(entity: IDotMatrixLight, call: ServiceCall) -> None:
             png=data["png"],
         ),
     )
-    entity.async_content_changed()
+    entity._device.async_content_changed()
 
 
 async def _show_gif(entity: IDotMatrixLight, call: ServiceCall) -> None:
@@ -129,7 +127,7 @@ async def _show_gif(entity: IDotMatrixLight, call: ServiceCall) -> None:
             duration_per_frame_in_ms=data.get("duration_per_frame"),
         ),
     )
-    entity.async_content_changed()
+    entity._device.async_content_changed()
 
 
 async def _show_text(entity: IDotMatrixLight, call: ServiceCall) -> None:
@@ -145,23 +143,23 @@ async def _show_text(entity: IDotMatrixLight, call: ServiceCall) -> None:
             text_bg_color=data.get("background_color"),
         )
     )
-    entity.async_content_changed()
+    entity._device.async_content_changed()
 
 
 async def _show_clock(entity: IDotMatrixLight, call: ServiceCall) -> None:
-    data = call.data
-    await entity._device.call(
-        entity._device.client.clock.show(
-            CLOCK_STYLES[data["style"]], show_date=data["show_date"], hour24=data["hour24"], color=data.get("color")
-        )
-    )
-    entity.async_content_changed("Clock")
+    """Shows the clock. What is not given is taken from the settings of the clock entities."""
+    state = entity._device.state
+    for name in ("style", "show_date", "hour24", "color"):
+        if name in call.data:
+            setattr(state, f"clock_{name}", call.data[name])
+    await entity._device.async_show_clock()
 
 
 async def _set_effect(entity: IDotMatrixLight, call: ServiceCall) -> None:
     data = call.data
     await entity._device.call(entity._device.client.effect.show(EFFECT_STYLES[data["style"]], data["colors"]))
-    entity.async_content_changed()
+    entity._device.state.effect = None
+    entity._device.async_content_changed(MODE_EFFECT)
 
 
 async def _countdown(entity: IDotMatrixLight, call: ServiceCall) -> None:
@@ -172,7 +170,7 @@ async def _countdown(entity: IDotMatrixLight, call: ServiceCall) -> None:
         await entity._device.call(countdown.start(data["minutes"], data["seconds"]))
     else:
         await entity._device.call({"pause": countdown.pause, "restart": countdown.restart, "stop": countdown.stop}[action]())
-    entity.async_content_changed()
+    entity._device.async_content_changed()
 
 
 async def _chronograph(entity: IDotMatrixLight, call: ServiceCall) -> None:
@@ -184,40 +182,36 @@ async def _chronograph(entity: IDotMatrixLight, call: ServiceCall) -> None:
         "reset": chronograph.reset,
     }[call.data["action"]]
     await entity._device.call(method())
-    entity.async_content_changed()
+    entity._device.async_content_changed()
 
 
 async def _scoreboard(entity: IDotMatrixLight, call: ServiceCall) -> None:
     await entity._device.call(entity._device.client.scoreboard.show(call.data["score_1"], call.data["score_2"]))
-    entity.async_content_changed()
+    entity._device.async_content_changed()
 
 
 async def _set_pixels(entity: IDotMatrixLight, call: ServiceCall) -> None:
     pixels = [tuple(pixel) for pixel in call.data["pixels"]]
     await entity._device.call(entity._device.client.graffiti.set_pixels(call.data["color"], pixels))
-    entity.async_content_changed()
+    entity._device.async_content_changed()
 
 
 async def _set_eco(entity: IDotMatrixLight, call: ServiceCall) -> None:
     data = call.data
-    start, end = data["start_time"], data["end_time"]
-    await entity._device.call(
-        entity._device.client.eco.set_mode(
-            enabled=data["enabled"],
-            start_hour=start.hour,
-            start_minute=start.minute,
-            end_hour=end.hour,
-            end_minute=end.minute,
-            eco_brightness=data["brightness"],
-        )
-    )
+    state = entity._device.state
+    state.night_enabled = data["enabled"]
+    state.night_start = data["start_time"]
+    state.night_end = data["end_time"]
+    state.night_brightness = data["brightness"]
+    await entity._device.async_apply_night_mode()
 
 
 async def _music_sync(entity: IDotMatrixLight, call: ServiceCall) -> None:
     await entity._device.call(
         entity._device.client.music_sync.set_mic_type(call.data["scene"], sensitivity=call.data["sensitivity"])
     )
-    entity.async_content_changed()
+    entity._device.state.music_scene = str(call.data["scene"])
+    entity._device.async_content_changed(MODE_MUSIC)
 
 
 def async_setup_services() -> None:
@@ -267,9 +261,9 @@ def async_setup_services() -> None:
     platform.async_register_entity_service(
         "show_clock",
         {
-            vol.Optional("style", default="rgbswipeoutline"): vol.In(CLOCK_STYLES),
-            vol.Optional("show_date", default=True): cv.boolean,
-            vol.Optional("hour24", default=True): cv.boolean,
+            vol.Optional("style"): vol.In(CLOCK_STYLES),
+            vol.Optional("show_date"): cv.boolean,
+            vol.Optional("hour24"): cv.boolean,
             vol.Optional("color"): RGB,
         },
         _show_clock,

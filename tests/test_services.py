@@ -41,7 +41,9 @@ async def test_show_text(hass: HomeAssistant, setup: MockConfigEntry, client: Ma
 async def test_show_clock(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
     await _call(hass, "show_clock", style="hourglass", hour24=False)
 
-    client.clock.show.assert_awaited_once_with(ClockStyle.Hourglass, show_date=True, hour24=False, color=None)
+    client.clock.show.assert_awaited_once_with(
+        ClockStyle.Hourglass, show_date=True, hour24=False, color=(255, 255, 255)
+    )
     assert hass.states.get(LIGHT).attributes["effect"] == "Clock"
 
 

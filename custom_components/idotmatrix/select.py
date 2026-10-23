@@ -5,37 +5,41 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from idotmatrix.modules.clock import ClockStyle
-
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import IDotMatrixConfigEntry
+from .const import CLOCK_STYLES, MODE_CLOCK, MODE_MUSIC
 from .device import IDotMatrixDevice
 from .entity import IDotMatrixEntity
 
-CLOCK_STYLES = {
-    "rgb_swipe_outline": ClockStyle.RGBSwipeOutline,
-    "christmas_tree": ClockStyle.ChristmasTree,
-    "checkers": ClockStyle.Checkers,
-    "color": ClockStyle.Color,
-    "hourglass": ClockStyle.Hourglass,
-    "alarm_clock": ClockStyle.AlarmClock,
-    "outlines": ClockStyle.Outlines,
-    "rgb_corners": ClockStyle.RGBCorners,
-}
 # the device microphone scenes 1-5 were tried on a 64x64, there may be more
 MUSIC_SYNC_SCENES = ["1", "2", "3", "4", "5"]
 
 
 @dataclass(frozen=True, kw_only=True)
 class IDotMatrixSelectDescription(SelectEntityDescription):
-    """Describes a select, and what choosing an option does."""
+    """
+    Describes a select. Choosing an option shows something, so the select only has an option while that is shown.
+    Otherwise it is unknown, which makes it possible to choose the same option again.
+    """
 
+    mode: str
     select_fn: Callable[[IDotMatrixDevice, str], Awaitable[object]]
     get_fn: Callable[[IDotMatrixDevice], str | None]
     set_fn: Callable[[IDotMatrixDevice, str], None]
+
+
+async def _select_clock_style(device: IDotMatrixDevice, option: str) -> None:
+    device.state.clock_style = option
+    await device.async_show_clock()
+
+
+async def _select_music_scene(device: IDotMatrixDevice, option: str) -> None:
+    await device.call(device.client.music_sync.set_mic_type(int(option)))
+    device.state.music_scene = option
+    device.async_content_changed(MODE_MUSIC)
 
 
 SELECTS = (
@@ -43,7 +47,8 @@ SELECTS = (
         key="clock_style",
         translation_key="clock_style",
         options=list(CLOCK_STYLES),
-        select_fn=lambda device, option: device.call(device.client.clock.show(CLOCK_STYLES[option])),
+        mode=MODE_CLOCK,
+        select_fn=_select_clock_style,
         get_fn=lambda device: device.state.clock_style,
         set_fn=lambda device, option: setattr(device.state, "clock_style", option),
     ),
@@ -51,9 +56,10 @@ SELECTS = (
         key="music_sync",
         translation_key="music_sync",
         options=MUSIC_SYNC_SCENES,
-        select_fn=lambda device, option: device.call(device.client.music_sync.set_mic_type(int(option))),
-        get_fn=lambda device: device.state.music_sync,
-        set_fn=lambda device, option: setattr(device.state, "music_sync", option),
+        mode=MODE_MUSIC,
+        select_fn=_select_music_scene,
+        get_fn=lambda device: device.state.music_scene,
+        set_fn=lambda device, option: setattr(device.state, "music_scene", option),
     ),
 )
 
@@ -68,7 +74,7 @@ async def async_setup_entry(
 
 
 class IDotMatrixSelect(IDotMatrixEntity, SelectEntity):
-    """Showing a clock style or a music sync scene is an action, the option is the last one that was chosen."""
+    """The option that was chosen last, while it is shown."""
 
     entity_description: IDotMatrixSelectDescription
 
@@ -78,13 +84,14 @@ class IDotMatrixSelect(IDotMatrixEntity, SelectEntity):
 
     @property
     def current_option(self) -> str | None:
+        if self._device.state.mode != self.entity_description.mode:
+            return None
         return self.entity_description.get_fn(self._device)
 
     def _restore(self, last_state: State) -> None:
         if last_state.state in self.entity_description.options:
             self.entity_description.set_fn(self._device, last_state.state)
+            self._device.state.mode = self.entity_description.mode
 
     async def async_select_option(self, option: str) -> None:
         await self.entity_description.select_fn(self._device, option)
-        self.entity_description.set_fn(self._device, option)
-        self._device.async_state_changed()

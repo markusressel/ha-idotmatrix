@@ -39,13 +39,21 @@ The display does not report its state, so the state of the entities is assumed (
 | Entity | What it does |
 |---|---|
 | Light | Turns the screen on and off, sets the brightness (5-100 %), shows a color on the whole screen and shows effects (rainbows, random pixels, the clock). |
+| Light *Clock* | Turning it on shows the clock (again, if it is shown already). Its color is the color of the clock, which is what the clock style *Color* displays. It is on while the clock is shown. Turning it off turns the screen off, because the display has no state "no clock". |
+| Select *Clock style* | Shows the clock in one of 8 styles. The select is unknown while something else is shown, so the same style can be chosen again to get the clock back. |
+| Switch *Clock shows date* | Off shows the time only, on lets the clock alternate between time and date. |
+| Switch *Clock 24 hour format* | 24 or 12 hours. |
+| Button *Show clock* | Shows the clock with the current settings, in one command. |
+| Switch *Night mode*, Time *Night mode start* / *end*, Number *Night mode brightness* | Dims the display between the two times. Changing any of them sends all four settings to the display. |
+| Select *Music sync scene* | Lets the display react to sound with its own microphone (scenes 1-5). Show something else to leave it. Unknown while something else is shown. |
 | Switch *Flip display* | Rotates the picture by 180 degrees. |
-| Select *Clock style* | Shows the clock in one of 8 styles. |
-| Select *Music sync scene* | Lets the display react to sound with its own microphone (scenes 1-5). Show something else to leave it. |
 | Text *Message* | Shows the text as scrolling text. Use the `show_text` action for colors and modes. |
 | Button *Sync time* | Sets the clock of the display to the time of Home Assistant. This also happens on every connection. |
 | Button *Restart* | Resets the display. |
 | Button *Freeze or unfreeze* | Freezes the picture (it toggles). |
+
+The clock settings (style, date, 24 hours, color) change the display immediately if the clock is shown. Otherwise they are
+kept and used the next time the clock is shown.
 
 ## Actions
 
@@ -56,13 +64,13 @@ All actions target the light of a display.
 | `idotmatrix.show_text` | Text with font size, mode (marquee, blinking, ...), speed and colors. |
 | `idotmatrix.show_image` | A picture from a file or an URL, scaled to the screen (`fit`, `fill`, `stretch`). |
 | `idotmatrix.show_gif` | An animated GIF from a file or an URL. |
-| `idotmatrix.show_clock` | The clock with style, date, 12/24 hours and color. |
+| `idotmatrix.show_clock` | The clock. Style, date, 12/24 hours and color that are not given are taken from the clock entities. |
 | `idotmatrix.set_effect` | An effect with 2 to 7 colors. |
 | `idotmatrix.countdown` | Starts, pauses, restarts or stops the countdown. |
 | `idotmatrix.chronograph` | Starts, pauses, resumes or resets the stopwatch. |
 | `idotmatrix.scoreboard` | Two scores, 0 to 999. |
 | `idotmatrix.set_pixels` | Colors single pixels. |
-| `idotmatrix.set_eco` | Dims the display between two times. |
+| `idotmatrix.set_eco` | The night mode: dims the display between two times. Updates the night mode entities. |
 | `idotmatrix.music_sync` | Music sync with the microphone of the display and its sensitivity. |
 
 ```yaml
