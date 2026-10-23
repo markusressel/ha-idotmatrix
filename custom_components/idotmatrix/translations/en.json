@@ -379,7 +379,7 @@
         },
         "media_content_id": {
           "name": "Media folder",
-          "description": "A folder of a media source of Home Assistant."
+          "description": "A folder of a media source of Home Assistant, f.e. media-source://media_source/local/party/. The media browser cannot select folders, so type the id."
         },
         "interval": {
           "name": "Interval",

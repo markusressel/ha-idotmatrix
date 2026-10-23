@@ -273,7 +273,7 @@ start_slideshow:
         text:
     media_content_id:
       selector:
-        media:
+        text:
     interval:
       default: 30
       selector:
