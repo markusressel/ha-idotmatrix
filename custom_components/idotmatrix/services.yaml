@@ -1,0 +1,259 @@
+show_image:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light
+  fields:
+    path:
+      selector:
+        text:
+    url:
+      selector:
+        text:
+          type: url
+    resize_mode:
+      default: fit
+      selector:
+        select:
+          translation_key: resize_mode
+          options: [fit, fill, stretch]
+    palletize:
+      default: false
+      selector:
+        boolean:
+    background_color:
+      default: [0, 0, 0]
+      selector:
+        color_rgb:
+    png:
+      default: false
+      advanced: true
+      selector:
+        boolean:
+show_gif:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light
+  fields:
+    path:
+      selector:
+        text:
+    url:
+      selector:
+        text:
+          type: url
+    resize_mode:
+      default: fit
+      selector:
+        select:
+          translation_key: resize_mode
+          options: [fit, fill, stretch]
+    palletize:
+      default: true
+      selector:
+        boolean:
+    background_color:
+      default: [0, 0, 0]
+      selector:
+        color_rgb:
+    duration_per_frame:
+      advanced: true
+      selector:
+        number:
+          min: 10
+          max: 5000
+          unit_of_measurement: ms
+show_text:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light
+  fields:
+    text:
+      required: true
+      selector:
+        text:
+    font_size:
+      default: 16
+      selector:
+        number:
+          min: 4
+          max: 64
+    mode:
+      default: marquee
+      selector:
+        select:
+          translation_key: text_mode
+          options: [replace, marquee, reversed_marquee, vertical_rising_marquee, vertical_lowering_marquee, blinking, fading, tetris, filling]
+    speed:
+      default: 95
+      selector:
+        number:
+          min: 0
+          max: 100
+    color_mode:
+      default: white
+      selector:
+        select:
+          translation_key: text_color_mode
+          options: [white, rgb, rainbow_1, rainbow_2, rainbow_3, rainbow_4]
+    color:
+      selector:
+        color_rgb:
+    background_color:
+      selector:
+        color_rgb:
+show_clock:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light
+  fields:
+    style:
+      default: rgbswipeoutline
+      selector:
+        select:
+          translation_key: clock_style_service
+          options: [rgbswipeoutline, christmastree, checkers, color, hourglass, alarmclock, outlines, rgbcorners]
+    show_date:
+      default: true
+      selector:
+        boolean:
+    hour24:
+      default: true
+      selector:
+        boolean:
+    color:
+      selector:
+        color_rgb:
+set_effect:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light
+  fields:
+    style:
+      required: true
+      selector:
+        select:
+          translation_key: effect_style
+          options: [gradient_horizontal_rainbow, random_colored_pixels_on_black, random_white_pixels_on_changing_background, vertical_rainbow, diagonal_right_rainbow, diagonal_left_rainbow_on_black, random_colored_pixels]
+    colors:
+      required: true
+      example: "[[255, 0, 0], [0, 0, 255]]"
+      selector:
+        object:
+countdown:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light
+  fields:
+    action:
+      required: true
+      selector:
+        select:
+          translation_key: countdown_action
+          options: [start, pause, restart, stop]
+    minutes:
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 59
+    seconds:
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 59
+chronograph:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light
+  fields:
+    action:
+      required: true
+      selector:
+        select:
+          translation_key: chronograph_action
+          options: [start, pause, resume, reset]
+scoreboard:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light
+  fields:
+    score_1:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 999
+    score_2:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 999
+set_pixels:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light
+  fields:
+    color:
+      required: true
+      selector:
+        color_rgb:
+    pixels:
+      required: true
+      example: "[[0, 0], [1, 1]]"
+      selector:
+        object:
+set_eco:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light
+  fields:
+    enabled:
+      default: true
+      selector:
+        boolean:
+    start_time:
+      required: true
+      selector:
+        time:
+    end_time:
+      required: true
+      selector:
+        time:
+    brightness:
+      default: 10
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+music_sync:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light
+  fields:
+    scene:
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 5
+          mode: box
+    sensitivity:
+      default: 50
+      selector:
+        number:
+          min: 0
+          max: 100

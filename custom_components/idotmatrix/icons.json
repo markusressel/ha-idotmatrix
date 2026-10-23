@@ -1,0 +1,65 @@
+{
+  "entity": {
+    "switch": {
+      "flip": {
+        "default": "mdi:flip-vertical"
+      }
+    },
+    "button": {
+      "sync_time": {
+        "default": "mdi:clock-check-outline"
+      },
+      "freeze": {
+        "default": "mdi:snowflake"
+      }
+    },
+    "select": {
+      "clock_style": {
+        "default": "mdi:clock-digital"
+      },
+      "music_sync": {
+        "default": "mdi:music-note"
+      }
+    },
+    "text": {
+      "message": {
+        "default": "mdi:message-text"
+      }
+    }
+  },
+  "services": {
+    "show_image": {
+      "service": "mdi:image"
+    },
+    "show_gif": {
+      "service": "mdi:gif"
+    },
+    "show_text": {
+      "service": "mdi:format-text"
+    },
+    "show_clock": {
+      "service": "mdi:clock-outline"
+    },
+    "set_effect": {
+      "service": "mdi:auto-fix"
+    },
+    "countdown": {
+      "service": "mdi:timer-sand"
+    },
+    "chronograph": {
+      "service": "mdi:timer-outline"
+    },
+    "scoreboard": {
+      "service": "mdi:scoreboard"
+    },
+    "set_pixels": {
+      "service": "mdi:grid"
+    },
+    "set_eco": {
+      "service": "mdi:weather-night"
+    },
+    "music_sync": {
+      "service": "mdi:music"
+    }
+  }
+}
