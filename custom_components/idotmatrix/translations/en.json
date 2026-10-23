@@ -389,6 +389,14 @@
           "name": "Include subfolders",
           "description": "Also shows the pictures of the subfolders (up to 8 levels deep)."
         },
+        "store": {
+          "name": "Store on the display",
+          "description": "Stores the pictures in the slots of the display, which then cycles through them by itself: the animation is not interrupted by uploads, and Bluetooth is not used afterwards. Interval is the time each picture is shown. The folder is not read again, and only as many pictures as there are slots are stored. Showing anything else ends it."
+        },
+        "slots": {
+          "name": "Slots",
+          "description": "The slots of the display that may be overwritten when storing. All 12 if empty. Other slots are not touched."
+        },
         "shuffle": {
           "name": "Shuffle",
           "description": "Shows the pictures in random order."
