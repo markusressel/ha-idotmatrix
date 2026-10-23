@@ -25,7 +25,8 @@ custom_components/idotmatrix/
   entity.py          base entity: device info, state restore
   light.py           main light (screen, brightness, color, effects) and the clock light
   switch.py select.py button.py number.py time.py text.py   the other entities
-  services.py        entity services on the light (show_text, show_image, ...), services.yaml describes them
+  media.py           getting pictures: files, urls (also relative to Home Assistant) and media sources
+  services.py        entity services on the light (show_text, show_image, start_slideshow, ...), services.yaml describes them
   const.py           constants, clock styles, modes
   translations/en.json, icons.json, services.yaml, brand/icon.png
 tests/               pytest-homeassistant-custom-component, the library client is mocked (tests/conftest.py)

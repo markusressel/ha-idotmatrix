@@ -1,5 +1,6 @@
 """Tests of the actions."""
 
+import asyncio
 import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -151,7 +152,7 @@ async def test_show_gif_from_an_url(hass: HomeAssistant, setup: MockConfigEntry,
     session.get.return_value.__aenter__ = AsyncMock(return_value=response)
     session.get.return_value.__aexit__ = AsyncMock(return_value=False)
 
-    with patch("custom_components.idotmatrix.services.async_get_clientsession", return_value=session):
+    with patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session):
         await _call(hass, "show_gif", url="https://example.com/a.gif", duration_per_frame=100)
 
     assert seen["content"] == b"GIF89a"
@@ -163,7 +164,7 @@ async def test_download_failure(hass: HomeAssistant, setup: MockConfigEntry) -> 
     session = MagicMock()
     session.get.side_effect = OSError("no network")
 
-    with patch("custom_components.idotmatrix.services.async_get_clientsession", return_value=session):
+    with patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session):
         with pytest.raises(HomeAssistantError, match="Could not download"):
             await _call(hass, "show_image", url="https://example.com/a.png")
 
@@ -175,3 +176,157 @@ async def test_invalid_values_from_the_library_are_reported(
 
     with pytest.raises(HomeAssistantError, match="bad color"):
         await _call(hass, "show_text", text="x")
+
+
+def _session(content: bytes = b"png") -> MagicMock:
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.content.read = AsyncMock(return_value=content)
+    session = MagicMock()
+    session.get.return_value.__aenter__ = AsyncMock(return_value=response)
+    session.get.return_value.__aexit__ = AsyncMock(return_value=False)
+    return session
+
+
+async def test_show_image_from_a_path_of_home_assistant(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock
+) -> None:
+    """The cover of a media player is served by Home Assistant itself, so the address is relative."""
+    session = _session()
+
+    with (
+        patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session),
+        patch("custom_components.idotmatrix.media.get_url", return_value="http://ha.local:8123"),
+    ):
+        await _call(hass, "show_image", url="/api/media_player_proxy/media_player.x?token=abc")
+
+    session.get.assert_called_once_with("http://ha.local:8123/api/media_player_proxy/media_player.x?token=abc")
+    client.image.show_image_file.assert_awaited_once()
+
+
+async def test_show_image_from_a_media_source(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    session = _session()
+    play_media = MagicMock(url="/media/local/a.png")
+
+    with (
+        patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session),
+        patch(
+            "custom_components.idotmatrix.media.media_source.async_resolve_media", AsyncMock(return_value=play_media)
+        ) as resolve,
+        patch(
+            "custom_components.idotmatrix.media.async_process_play_media_url",
+            side_effect=lambda hass, url: f"http://ha.local:8123{url}?authSig=1",
+        ),
+    ):
+        await _call(hass, "show_image", media_content_id="media-source://media_source/local/a.png")
+
+    resolve.assert_awaited_once_with(hass, "media-source://media_source/local/a.png", None)
+    session.get.assert_called_once_with("http://ha.local:8123/media/local/a.png?authSig=1")
+    client.image.show_image_file.assert_awaited_once()
+
+
+@pytest.fixture
+def fast_slideshow():
+    """The pause between two pictures of a slideshow is only a switch of the event loop."""
+    real_sleep = asyncio.sleep
+
+    async def sleep(_delay: float) -> None:
+        await real_sleep(0.01)
+
+    with patch("custom_components.idotmatrix.services.asyncio.sleep", sleep):
+        yield
+
+
+async def _wait_for(condition) -> None:
+    for _ in range(200):
+        if condition():
+            return
+        await asyncio.sleep(0.01)
+    raise AssertionError("timed out")
+
+
+def _shown(client: MagicMock) -> list[str]:
+    return [Path(call.args[0]).name for call in client.image.show_image_file.await_args_list]
+
+
+async def test_slideshow_cycles_through_a_folder(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path, fast_slideshow: None
+) -> None:
+    for name in ("b.jpg", "a.png", "notes.txt"):
+        (tmp_path / name).write_bytes(b"x")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    await _call(hass, "start_slideshow", folder=str(tmp_path), interval=10)
+    await _wait_for(lambda: len(client.image.show_image_file.await_args_list) >= 3)
+    await _call(hass, "stop_slideshow")
+
+    assert _shown(client)[:3] == ["a.png", "b.jpg", "a.png"]
+    shown = len(client.image.show_image_file.await_args_list)
+    await asyncio.sleep(0.05)
+    assert len(client.image.show_image_file.await_args_list) == shown
+
+
+async def test_slideshow_shows_animated_gifs_as_gifs(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path, fast_slideshow: None
+) -> None:
+    (tmp_path / "a.gif").write_bytes(b"x")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    await _call(hass, "start_slideshow", folder=str(tmp_path))
+    await _wait_for(lambda: client.gif.upload_gif_file.await_count >= 1)
+    await _call(hass, "stop_slideshow")
+
+    client.image.show_image_file.assert_not_awaited()
+
+
+async def test_slideshow_picks_up_new_pictures(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path, fast_slideshow: None
+) -> None:
+    (tmp_path / "a.png").write_bytes(b"x")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    await _call(hass, "start_slideshow", folder=str(tmp_path))
+    await _wait_for(lambda: len(_shown(client)) >= 1)
+    (tmp_path / "b.png").write_bytes(b"x")
+    await _wait_for(lambda: "b.png" in _shown(client))
+    await _call(hass, "stop_slideshow")
+
+
+async def test_slideshow_goes_on_after_a_broken_picture(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path, fast_slideshow: None
+) -> None:
+    for name in ("a.png", "b.png"):
+        (tmp_path / name).write_bytes(b"x")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+    client.image.show_image_file.side_effect = [ValueError("broken"), None, None]
+
+    await _call(hass, "start_slideshow", folder=str(tmp_path))
+    await _wait_for(lambda: len(client.image.show_image_file.await_args_list) >= 3)
+    await _call(hass, "stop_slideshow")
+
+
+async def test_showing_something_else_ends_the_slideshow(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path, fast_slideshow: None
+) -> None:
+    (tmp_path / "a.png").write_bytes(b"x")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+    await _call(hass, "start_slideshow", folder=str(tmp_path))
+    await _wait_for(lambda: len(_shown(client)) >= 1)
+
+    await _call(hass, "show_text", text="Hi")
+
+    shown = len(_shown(client))
+    await asyncio.sleep(0.1)
+    assert len(_shown(client)) == shown
+
+
+async def test_slideshow_needs_pictures(hass: HomeAssistant, setup: MockConfigEntry, tmp_path: Path) -> None:
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    with pytest.raises(vol.Invalid, match="no pictures"):
+        await _call(hass, "start_slideshow", folder=str(tmp_path))
+
+
+async def test_slideshow_needs_a_folder(hass: HomeAssistant, setup: MockConfigEntry) -> None:
+    with pytest.raises(vol.Invalid, match="folder or media_content_id"):
+        await _call(hass, "start_slideshow")

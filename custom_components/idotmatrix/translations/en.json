@@ -146,7 +146,11 @@
         },
         "url": {
           "name": "URL",
-          "description": "Address of an image to download."
+          "description": "Address of an image to download. A path like /api/media_player_proxy/... (f.e. the cover of a media player) is loaded from Home Assistant itself."
+        },
+        "media_content_id": {
+          "name": "Media",
+          "description": "A picture from a media source of Home Assistant."
         },
         "resize_mode": {
           "name": "Resize mode",
@@ -176,7 +180,11 @@
         },
         "url": {
           "name": "URL",
-          "description": "Address of a GIF to download."
+          "description": "Address of an image to download. A path like /api/media_player_proxy/... (f.e. the cover of a media player) is loaded from Home Assistant itself."
+        },
+        "media_content_id": {
+          "name": "Media",
+          "description": "A picture from a media source of Home Assistant."
         },
         "resize_mode": {
           "name": "Resize mode",
@@ -357,6 +365,40 @@
           "description": "Sensitivity of the microphone, 0 to 100."
         }
       }
+    },
+    "start_slideshow": {
+      "name": "Start slideshow",
+      "description": "Shows the pictures of a folder one after another, over and over. The folder is read again every round, so new pictures show up. Showing anything else ends the slideshow.",
+      "fields": {
+        "folder": {
+          "name": "Folder",
+          "description": "A folder of the file system. It must be listed in allowlist_external_dirs."
+        },
+        "media_content_id": {
+          "name": "Media folder",
+          "description": "A folder of a media source of Home Assistant."
+        },
+        "interval": {
+          "name": "Interval",
+          "description": "How long each picture is shown. Uploading takes a few seconds."
+        },
+        "shuffle": {
+          "name": "Shuffle",
+          "description": "Shows the pictures in random order."
+        },
+        "resize_mode": {
+          "name": "Resize mode",
+          "description": "Fit keeps the whole picture (with a background), fill crops it to cover the screen, stretch distorts it."
+        },
+        "background_color": {
+          "name": "Background color",
+          "description": "Color of the bars if the picture does not have the shape of the screen."
+        }
+      }
+    },
+    "stop_slideshow": {
+      "name": "Stop slideshow",
+      "description": "Ends the slideshow. The display keeps showing the last picture."
     }
   },
   "selector": {

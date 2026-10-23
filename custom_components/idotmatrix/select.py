@@ -94,4 +94,5 @@ class IDotMatrixSelect(IDotMatrixEntity, SelectEntity):
             self._device.state.mode = self.entity_description.mode
 
     async def async_select_option(self, option: str) -> None:
+        self._device.stop_slideshow()
         await self.entity_description.select_fn(self._device, option)

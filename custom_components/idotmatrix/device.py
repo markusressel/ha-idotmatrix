@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import time
+import asyncio
 import logging
 from typing import Any
 
@@ -77,6 +78,8 @@ class IDotMatrixDevice:
         self.idle_timeout = idle_timeout
         self.state = DeviceState()
         self.firmware_version: str | None = None
+        # the task that shows the pictures of a slideshow, as long as there is one
+        self.slideshow: asyncio.Task | None = None
 
         self._cancel_idle: CALLBACK_TYPE | None = None
         self._listeners: list[CALLBACK_TYPE] = []
@@ -153,6 +156,7 @@ class IDotMatrixDevice:
 
     async def async_disconnect(self) -> None:
         """Closes the connection."""
+        self.stop_slideshow()
         self._stop_idle_timer()
         await self.client.disconnect()
 
@@ -228,8 +232,20 @@ class IDotMatrixDevice:
         return lambda: self._listeners.remove(listener)
 
     @callback
-    def async_content_changed(self, mode: str = MODE_CONTENT) -> None:
-        """Something was shown, so the screen is on and what was assumed before is not shown anymore."""
+    def stop_slideshow(self) -> None:
+        """Ends the slideshow, if there is one."""
+        if self.slideshow is not None:
+            self.slideshow.cancel()
+            self.slideshow = None
+
+    @callback
+    def async_content_changed(self, mode: str = MODE_CONTENT, *, keep_slideshow: bool = False) -> None:
+        """
+        Something was shown, so the screen is on and what was assumed before is not shown anymore. That ends a slideshow,
+        unless it is what showed it.
+        """
+        if not keep_slideshow:
+            self.stop_slideshow()
         self.state.is_on = True
         self.state.mode = mode
         self.async_state_changed()
