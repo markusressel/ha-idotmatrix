@@ -39,6 +39,7 @@ class IDotMatrixText(IDotMatrixEntity, TextEntity):
             self._value = last_state.state
 
     async def async_set_value(self, value: str) -> None:
+        self._device.stop_slideshow()
         await self._device.call(self._device.client.text.show_text(value))
         self._value = value
         self._device.async_content_changed()

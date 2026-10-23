@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import random
 from collections.abc import Awaitable, Callable
 import os
-import tempfile
 from typing import TYPE_CHECKING, Any
 
 from idotmatrix.modules.effect import EffectStyle
@@ -14,17 +15,23 @@ from idotmatrix.util.image_utils import ResizeMode
 import voluptuous as vol
 
 from homeassistant.core import ServiceCall
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv, entity_platform
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import CLOCK_STYLES, DOMAIN, MODE_EFFECT, MODE_MUSIC
+from .const import CLOCK_STYLES, MODE_EFFECT, MODE_MUSIC
+from .media import (
+    ATTR_MEDIA_CONTENT_ID,
+    ATTR_PATH,
+    ATTR_URL,
+    Source,
+    async_fetch,
+    async_list_pictures,
+    is_gif,
+)
 
 if TYPE_CHECKING:
     from .light import IDotMatrixLight
 
-ATTR_PATH = "path"
-ATTR_URL = "url"
+_LOGGER = logging.getLogger(__name__)
 
 RESIZE_MODES = {"fit": ResizeMode.FIT, "fill": ResizeMode.FILL, "stretch": ResizeMode.STRETCH}
 TEXT_MODES = {mode.name.lower(): mode for mode in TextMode}
@@ -32,65 +39,40 @@ TEXT_COLOR_MODES = {mode.name.lower(): mode for mode in TextColorMode}
 EFFECT_STYLES = {style.name.lower(): style for style in EffectStyle}
 
 RGB = vol.All(vol.ExactSequence((cv.byte, cv.byte, cv.byte)), vol.Coerce(tuple))
-MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
 
 SOURCE_SCHEMA = {
     vol.Exclusive(ATTR_PATH, "source"): cv.string,
-    vol.Exclusive(ATTR_URL, "source"): cv.url,
+    vol.Exclusive(ATTR_URL, "source"): cv.string,
+    vol.Exclusive(ATTR_MEDIA_CONTENT_ID, "source"): cv.string,
 }
 
 
 def _require_source(data: dict[str, Any]) -> dict[str, Any]:
-    if ATTR_PATH not in data and ATTR_URL not in data:
-        raise vol.Invalid("Either path or url is required")
+    if not any(key in data for key in (ATTR_PATH, ATTR_URL, ATTR_MEDIA_CONTENT_ID)):
+        raise vol.Invalid("Either path, url or media_content_id is required")
     return data
 
 
-async def _async_fetch(entity: IDotMatrixLight, data: dict[str, Any]) -> tuple[str, bool]:
-    """
-    Returns the path of the file to show, and whether it is a temporary file that has to be deleted.
-    Local files must be in a folder that is allowed by `allowlist_external_dirs`.
-    """
-    hass = entity.hass
-    if ATTR_PATH in data:
-        path = data[ATTR_PATH]
-        if not hass.config.is_allowed_path(path):
-            raise HomeAssistantError(
-                translation_domain=DOMAIN, translation_key="path_not_allowed", translation_placeholders={"path": path}
-            )
-        if not await hass.async_add_executor_job(os.path.isfile, path):
-            raise HomeAssistantError(
-                translation_domain=DOMAIN, translation_key="file_not_found", translation_placeholders={"path": path}
-            )
-        return path, False
+def _require_folder(data: dict[str, Any]) -> dict[str, Any]:
+    if "folder" not in data and ATTR_MEDIA_CONTENT_ID not in data:
+        raise vol.Invalid("Either folder or media_content_id is required")
+    return data
 
-    url = data[ATTR_URL]
-    session = async_get_clientsession(hass)
-    try:
-        async with asyncio.timeout(30), session.get(url) as response:
-            response.raise_for_status()
-            content = await response.content.read(MAX_DOWNLOAD_BYTES + 1)
-    except (TimeoutError, Exception) as ex:
-        raise HomeAssistantError(
-            translation_domain=DOMAIN,
-            translation_key="download_failed",
-            translation_placeholders={"url": url, "error": str(ex) or type(ex).__name__},
-        ) from ex
-    if len(content) > MAX_DOWNLOAD_BYTES:
-        raise HomeAssistantError(translation_domain=DOMAIN, translation_key="download_too_large")
 
-    def _write() -> str:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".img") as file:
-            file.write(content)
-            return file.name
+def _interrupting(handler: Callable[[IDotMatrixLight, ServiceCall], Awaitable[None]]):
+    """Whatever else is shown ends a running slideshow, before it has a chance to upload the next picture."""
 
-    return await hass.async_add_executor_job(_write), True
+    async def _handle(entity: IDotMatrixLight, call: ServiceCall) -> None:
+        entity._device.stop_slideshow()
+        await handler(entity, call)
+
+    return _handle
 
 
 async def _async_with_file(
     entity: IDotMatrixLight, data: dict[str, Any], action: Callable[[str], Awaitable[Any]]
 ) -> None:
-    path, temporary = await _async_fetch(entity, data)
+    path, temporary = await async_fetch(entity.hass, data)
     try:
         await entity._device.call(action(path))
     finally:
@@ -98,36 +80,88 @@ async def _async_with_file(
             await entity.hass.async_add_executor_job(os.unlink, path)
 
 
+async def _async_show_picture(
+    entity: IDotMatrixLight, source: Source, options: dict[str, Any], *, gif: bool | None = None
+) -> None:
+    """Shows a picture, or an animated GIF if it is one (or `gif` says so)."""
+    client = entity._device.client
+    if gif is None:
+        gif = is_gif(source)
+    if gif:
+        await _async_with_file(
+            entity,
+            source,
+            lambda path: client.gif.upload_gif_file(
+                path,
+                resize_mode=RESIZE_MODES[options["resize_mode"]],
+                palletize=options.get("palletize", True),
+                background_color=options["background_color"],
+                duration_per_frame_in_ms=options.get("duration_per_frame"),
+            ),
+        )
+    else:
+        await _async_with_file(
+            entity,
+            source,
+            lambda path: client.image.show_image_file(
+                path,
+                resize_mode=RESIZE_MODES[options["resize_mode"]],
+                palletize=options.get("palletize", False),
+                background_color=options["background_color"],
+                png=options.get("png", False),
+            ),
+        )
+
+
+def _source_of(data: dict[str, Any]) -> Source:
+    return {key: data[key] for key in (ATTR_PATH, ATTR_URL, ATTR_MEDIA_CONTENT_ID) if key in data}
+
+
 async def _show_image(entity: IDotMatrixLight, call: ServiceCall) -> None:
-    data = call.data
-    await _async_with_file(
-        entity,
-        data,
-        lambda path: entity._device.client.image.show_image_file(
-            path,
-            resize_mode=RESIZE_MODES[data["resize_mode"]],
-            palletize=data["palletize"],
-            background_color=data["background_color"],
-            png=data["png"],
-        ),
-    )
+    await _async_show_picture(entity, _source_of(call.data), call.data, gif=False)
     entity._device.async_content_changed()
 
 
 async def _show_gif(entity: IDotMatrixLight, call: ServiceCall) -> None:
-    data = call.data
-    await _async_with_file(
-        entity,
-        data,
-        lambda path: entity._device.client.gif.upload_gif_file(
-            path,
-            resize_mode=RESIZE_MODES[data["resize_mode"]],
-            palletize=data["palletize"],
-            background_color=data["background_color"],
-            duration_per_frame_in_ms=data.get("duration_per_frame"),
-        ),
-    )
+    await _async_show_picture(entity, _source_of(call.data), call.data, gif=True)
     entity._device.async_content_changed()
+
+
+async def _start_slideshow(entity: IDotMatrixLight, call: ServiceCall) -> None:
+    """Shows the pictures of a folder one after another. The folder is read again every round."""
+    data = call.data
+    device = entity._device
+    hass = entity.hass
+    folder = data.get("folder")
+    media_content_id = data.get(ATTR_MEDIA_CONTENT_ID)
+    interval = data["interval"]
+
+    pictures = await async_list_pictures(hass, folder, media_content_id)
+    if not pictures:
+        raise vol.Invalid("There are no pictures in the folder")
+
+    async def _run(pictures: list[Source]) -> None:
+        while True:
+            if data["shuffle"]:
+                random.shuffle(pictures)
+            for picture in pictures:
+                try:
+                    await _async_show_picture(entity, picture, data)
+                    device.async_content_changed(keep_slideshow=True)
+                except Exception:  # noqa: BLE001 - a broken picture or a lost connection must not end the slideshow
+                    _LOGGER.warning("Could not show %s, skipping it", picture, exc_info=True)
+                await asyncio.sleep(interval)
+            # new pictures may have been added
+            pictures = await async_list_pictures(hass, folder, media_content_id) or pictures
+
+    device.stop_slideshow()
+    device.slideshow = hass.async_create_background_task(_run(pictures), f"idotmatrix slideshow {device.address}")
+    device.async_content_changed(keep_slideshow=True)
+
+
+async def _stop_slideshow(entity: IDotMatrixLight, call: ServiceCall) -> None:
+    entity._device.stop_slideshow()
+    entity._device.async_state_changed()
 
 
 async def _show_text(entity: IDotMatrixLight, call: ServiceCall) -> None:
@@ -243,8 +277,24 @@ def async_setup_services() -> None:
         _require_source,
     )
 
-    platform.async_register_entity_service("show_image", image_schema, _show_image)
-    platform.async_register_entity_service("show_gif", gif_schema, _show_gif)
+    slideshow_schema = vol.All(
+        cv.make_entity_service_schema(
+            {
+                vol.Exclusive("folder", "folder"): cv.string,
+                vol.Exclusive(ATTR_MEDIA_CONTENT_ID, "folder"): cv.string,
+                vol.Optional("interval", default=30): vol.All(vol.Coerce(int), vol.Range(min=10, max=3600)),
+                vol.Optional("shuffle", default=False): cv.boolean,
+                vol.Optional("resize_mode", default="fit"): vol.In(RESIZE_MODES),
+                vol.Optional("background_color", default=(0, 0, 0)): RGB,
+            }
+        ),
+        _require_folder,
+    )
+
+    platform.async_register_entity_service("show_image", image_schema, _interrupting(_show_image))
+    platform.async_register_entity_service("start_slideshow", slideshow_schema, _start_slideshow)
+    platform.async_register_entity_service("stop_slideshow", {}, _stop_slideshow)
+    platform.async_register_entity_service("show_gif", gif_schema, _interrupting(_show_gif))
     platform.async_register_entity_service(
         "show_text",
         {
@@ -256,7 +306,7 @@ def async_setup_services() -> None:
             vol.Optional("color"): RGB,
             vol.Optional("background_color"): RGB,
         },
-        _show_text,
+        _interrupting(_show_text),
     )
     platform.async_register_entity_service(
         "show_clock",
@@ -266,7 +316,7 @@ def async_setup_services() -> None:
             vol.Optional("hour24"): cv.boolean,
             vol.Optional("color"): RGB,
         },
-        _show_clock,
+        _interrupting(_show_clock),
     )
     platform.async_register_entity_service(
         "set_effect",
@@ -274,7 +324,7 @@ def async_setup_services() -> None:
             vol.Required("style"): vol.In(EFFECT_STYLES),
             vol.Required("colors"): vol.All(cv.ensure_list, [RGB], vol.Length(min=2, max=7)),
         },
-        _set_effect,
+        _interrupting(_set_effect),
     )
     platform.async_register_entity_service(
         "countdown",
@@ -283,12 +333,12 @@ def async_setup_services() -> None:
             vol.Optional("minutes", default=1): vol.All(vol.Coerce(int), vol.Range(min=0, max=59)),
             vol.Optional("seconds", default=0): vol.All(vol.Coerce(int), vol.Range(min=0, max=59)),
         },
-        _countdown,
+        _interrupting(_countdown),
     )
     platform.async_register_entity_service(
         "chronograph",
         {vol.Required("action"): vol.In(["start", "pause", "resume", "reset"])},
-        _chronograph,
+        _interrupting(_chronograph),
     )
     platform.async_register_entity_service(
         "scoreboard",
@@ -296,7 +346,7 @@ def async_setup_services() -> None:
             vol.Required("score_1"): vol.All(vol.Coerce(int), vol.Range(min=0, max=999)),
             vol.Required("score_2"): vol.All(vol.Coerce(int), vol.Range(min=0, max=999)),
         },
-        _scoreboard,
+        _interrupting(_scoreboard),
     )
     platform.async_register_entity_service(
         "set_pixels",
@@ -306,7 +356,7 @@ def async_setup_services() -> None:
                 cv.ensure_list, [vol.ExactSequence((cv.positive_int, cv.positive_int))], vol.Length(min=1)
             ),
         },
-        _set_pixels,
+        _interrupting(_set_pixels),
     )
     platform.async_register_entity_service(
         "set_eco",
@@ -324,5 +374,5 @@ def async_setup_services() -> None:
             vol.Optional("scene", default=1): vol.All(vol.Coerce(int), vol.Range(min=1, max=5)),
             vol.Optional("sensitivity", default=50): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
         },
-        _music_sync,
+        _interrupting(_music_sync),
     )

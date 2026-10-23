@@ -11,6 +11,10 @@ show_image:
       selector:
         text:
           type: url
+    media_content_id:
+      selector:
+        media:
+          accept: ["image/*"]
     resize_mode:
       default: fit
       selector:
@@ -43,6 +47,10 @@ show_gif:
       selector:
         text:
           type: url
+    media_content_id:
+      selector:
+        media:
+          accept: ["image/*"]
     resize_mode:
       default: fit
       selector:
@@ -254,3 +262,41 @@ music_sync:
         number:
           min: 0
           max: 100
+start_slideshow:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light
+  fields:
+    folder:
+      selector:
+        text:
+    media_content_id:
+      selector:
+        media:
+    interval:
+      default: 30
+      selector:
+        number:
+          min: 10
+          max: 3600
+          unit_of_measurement: s
+    shuffle:
+      default: false
+      selector:
+        boolean:
+    resize_mode:
+      default: fit
+      selector:
+        select:
+          translation_key: resize_mode
+          options: [fit, fill, stretch]
+    background_color:
+      default: [0, 0, 0]
+      selector:
+        color_rgb:
+stop_slideshow:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light

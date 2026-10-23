@@ -64,6 +64,12 @@
     "show_gif": {
       "service": "mdi:gif"
     },
+    "start_slideshow": {
+      "service": "mdi:slideshow"
+    },
+    "stop_slideshow": {
+      "service": "mdi:stop"
+    },
     "show_text": {
       "service": "mdi:format-text"
     },

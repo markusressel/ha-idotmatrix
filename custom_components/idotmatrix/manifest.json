@@ -9,7 +9,7 @@
   ],
   "codeowners": ["@markusressel"],
   "config_flow": true,
-  "dependencies": ["bluetooth_adapters"],
+  "dependencies": ["bluetooth_adapters", "media_source"],
   "documentation": "https://github.com/markusressel/ha-idotmatrix",
   "integration_type": "device",
   "iot_class": "local_push",

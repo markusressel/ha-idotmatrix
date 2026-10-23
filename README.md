@@ -62,8 +62,10 @@ All actions target the light of a display.
 | Action | Purpose |
 |---|---|
 | `idotmatrix.show_text` | Text with font size, mode (marquee, blinking, ...), speed and colors. |
-| `idotmatrix.show_image` | A picture from a file or an URL, scaled to the screen (`fit`, `fill`, `stretch`). |
-| `idotmatrix.show_gif` | An animated GIF from a file or an URL. |
+| `idotmatrix.show_image` | A picture from a file, an URL or a media source, scaled to the screen (`fit`, `fill`, `stretch`). |
+| `idotmatrix.show_gif` | An animated GIF from a file, an URL or a media source. |
+| `idotmatrix.start_slideshow` | The pictures of a folder (a folder of the file system or of a media source) one after another. The folder is read again every round. Showing anything else ends it. |
+| `idotmatrix.stop_slideshow` | Ends the slideshow. |
 | `idotmatrix.show_clock` | The clock. Style, date, 12/24 hours and color that are not given are taken from the clock entities. |
 | `idotmatrix.set_effect` | An effect with 2 to 7 colors. |
 | `idotmatrix.countdown` | Starts, pauses, restarts or stops the countdown. |
@@ -92,6 +94,19 @@ data:
   url: "https://example.com/camera/snapshot.jpg"
   resize_mode: fill
 ```
+
+```yaml
+action: idotmatrix.start_slideshow
+target:
+  entity_id: light.idm_123456
+data:
+  media_content_id: "media-source://media_source/local/party"
+  interval: 20
+  shuffle: true
+```
+
+An URL that starts with `/` is loaded from Home Assistant itself, which makes it possible to show the cover of a media
+player: `url: "{{ state_attr('media_player.living_room', 'entity_picture') }}"`.
 
 Local files have to be in a folder that is listed in
 [`allowlist_external_dirs`](https://www.home-assistant.io/docs/configuration/basic/#allowlist_external_dirs).

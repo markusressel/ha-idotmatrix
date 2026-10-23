@@ -103,6 +103,8 @@ class IDotMatrixLight(IDotMatrixEntity, LightEntity):
         """Turn the screen on, and show a color or an effect if asked to."""
         client = self._device.client
         state = self._device.state
+        if ATTR_EFFECT in kwargs or ATTR_RGB_COLOR in kwargs:
+            self._device.stop_slideshow()
 
         if not state.is_on or not kwargs:
             await self._device.call(client.common.turn_on())
@@ -132,6 +134,7 @@ class IDotMatrixLight(IDotMatrixEntity, LightEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the screen off."""
+        self._device.stop_slideshow()
         await self._device.call(self._device.client.common.turn_off())
         self._device.state.is_on = False
         self._device.async_state_changed()
@@ -182,6 +185,7 @@ class IDotMatrixClockLight(IDotMatrixEntity, LightEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the screen off."""
+        self._device.stop_slideshow()
         await self._device.call(self._device.client.common.turn_off())
         self._device.state.is_on = False
         self._device.async_state_changed()
