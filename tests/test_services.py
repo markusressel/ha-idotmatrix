@@ -330,3 +330,37 @@ async def test_slideshow_needs_pictures(hass: HomeAssistant, setup: MockConfigEn
 async def test_slideshow_needs_a_folder(hass: HomeAssistant, setup: MockConfigEntry) -> None:
     with pytest.raises(vol.Invalid, match="folder or media_content_id"):
         await _call(hass, "start_slideshow")
+
+
+async def test_fields_left_empty_in_the_ui_are_ignored(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path
+) -> None:
+    image = tmp_path / "a.png"
+    image.write_bytes(b"x")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    await _call(hass, "show_image", path=str(image), url=None, media_content_id=None)
+    await _call(hass, "show_image", path=str(image), url="", media_content_id="")
+
+    assert client.image.show_image_file.await_count == 2
+
+
+async def test_media_picker_value_is_accepted(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    session = _session()
+    play_media = MagicMock(url="/media/local/a.png")
+
+    with (
+        patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session),
+        patch("custom_components.idotmatrix.media.media_source.async_resolve_media", AsyncMock(return_value=play_media)),
+        patch("custom_components.idotmatrix.media.async_process_play_media_url", side_effect=lambda hass, url: f"http://x{url}"),
+    ):
+        await _call(
+            hass,
+            "show_image",
+            media_content_id={
+                "media_content_id": "media-source://media_source/local/a.png",
+                "media_content_type": "image/png",
+            },
+        )
+
+    session.get.assert_called_once_with("http://x/media/local/a.png")
