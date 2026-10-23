@@ -40,10 +40,22 @@ EFFECT_STYLES = {style.name.lower(): style for style in EffectStyle}
 
 RGB = vol.All(vol.ExactSequence((cv.byte, cv.byte, cv.byte)), vol.Coerce(tuple))
 
+def _media_content_id(value: Any) -> str:
+    """The media picker of the UI gives an object with the id in it."""
+    if isinstance(value, dict):
+        value = value.get(ATTR_MEDIA_CONTENT_ID)
+    return cv.string(value)
+
+
+def _without_empty_values(data: dict[str, Any]) -> dict[str, Any]:
+    """The UI sends fields that were left empty as None or an empty string."""
+    return {key: value for key, value in data.items() if value is not None and value != ""}
+
+
 SOURCE_SCHEMA = {
     vol.Exclusive(ATTR_PATH, "source"): cv.string,
     vol.Exclusive(ATTR_URL, "source"): cv.string,
-    vol.Exclusive(ATTR_MEDIA_CONTENT_ID, "source"): cv.string,
+    vol.Exclusive(ATTR_MEDIA_CONTENT_ID, "source"): _media_content_id,
 }
 
 
@@ -253,6 +265,7 @@ def async_setup_services() -> None:
     platform = entity_platform.async_get_current_platform()
 
     image_schema = vol.All(
+        _without_empty_values,
         cv.make_entity_service_schema(
             {
                 **SOURCE_SCHEMA,
@@ -265,6 +278,7 @@ def async_setup_services() -> None:
         _require_source,
     )
     gif_schema = vol.All(
+        _without_empty_values,
         cv.make_entity_service_schema(
             {
                 **SOURCE_SCHEMA,
@@ -278,10 +292,11 @@ def async_setup_services() -> None:
     )
 
     slideshow_schema = vol.All(
+        _without_empty_values,
         cv.make_entity_service_schema(
             {
                 vol.Exclusive("folder", "folder"): cv.string,
-                vol.Exclusive(ATTR_MEDIA_CONTENT_ID, "folder"): cv.string,
+                vol.Exclusive(ATTR_MEDIA_CONTENT_ID, "folder"): _media_content_id,
                 vol.Optional("interval", default=30): vol.All(vol.Coerce(int), vol.Range(min=10, max=3600)),
                 vol.Optional("shuffle", default=False): cv.boolean,
                 vol.Optional("resize_mode", default="fit"): vol.In(RESIZE_MODES),
