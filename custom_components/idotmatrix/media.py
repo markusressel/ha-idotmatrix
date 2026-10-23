@@ -62,7 +62,8 @@ async def async_fetch(hass: HomeAssistant, source: Source) -> tuple[str, bool]:
             raise _error("download_failed", url=source[ATTR_MEDIA_CONTENT_ID], error=str(ex)) from ex
         url = play_media.url
     else:
-        url = source[ATTR_URL]
+        # quotes are a common mistake in the text field of the UI, which takes the text as it is
+        url = source[ATTR_URL].strip().strip("'\"")
 
     # The streams are an endless MJPEG stream of the same pictures, which is no file, but the address without
     # "_stream" gives the current picture. The image media source resolves to the stream.

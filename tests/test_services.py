@@ -468,3 +468,16 @@ async def test_picture_that_arrives_in_pieces_is_complete(
         await _call(hass, "show_image", url="https://example.com/a.png")
 
     assert seen["content"] == b"0123456789"
+
+
+async def test_quotes_around_an_url_are_ignored(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    session = _session()
+
+    with (
+        patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session),
+        patch("custom_components.idotmatrix.media.get_url", return_value="http://x"),
+        patch("custom_components.idotmatrix.media.async_sign_path", side_effect=lambda hass, path, *a, **kw: path),
+    ):
+        await _call(hass, "show_image", url='"/api/media_player_proxy/media_player.x?token=1"')
+
+    session.get.assert_called_once_with("http://x/api/media_player_proxy/media_player.x?token=1")
