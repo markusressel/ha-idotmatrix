@@ -28,6 +28,7 @@ _LOGGER = logging.getLogger(__name__)
 STREAM_PATHS = {"/api/image_proxy_stream/": "/api/image_proxy/", "/api/camera_proxy_stream/": "/api/camera_proxy/"}
 SIGNED_URL_LIFETIME = timedelta(minutes=5)
 MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
+MAX_FOLDER_DEPTH = 8
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif"}
 
 # a source of a picture, as a dict with one of the keys above
@@ -104,31 +105,50 @@ async def async_fetch(hass: HomeAssistant, source: Source) -> tuple[str, bool]:
     return await hass.async_add_executor_job(_write), True
 
 
-async def async_list_pictures(hass: HomeAssistant, folder: str | None, media_content_id: str | None) -> list[Source]:
-    """The pictures in a folder of the file system, or in a folder of a media source. Not recursive."""
+async def async_list_pictures(
+    hass: HomeAssistant, folder: str | None, media_content_id: str | None, recursive: bool = False
+) -> list[Source]:
+    """
+    The pictures in a folder of the file system, or in a folder of a media source. With `recursive` the subfolders
+    are searched as well, down to `MAX_FOLDER_DEPTH` levels.
+    """
     if folder is not None:
         if not hass.config.is_allowed_path(folder):
             raise _error("path_not_allowed", path=folder)
 
         def _list() -> list[Source]:
+            pictures: list[Source] = []
             try:
-                names = sorted(os.listdir(folder))
+                for root, dirs, names in os.walk(folder):
+                    dirs.sort()
+                    depth = os.path.relpath(root, folder).count(os.sep) + (0 if root == folder else 1)
+                    if not recursive or depth >= MAX_FOLDER_DEPTH:
+                        dirs.clear()
+                    pictures.extend(
+                        {ATTR_PATH: os.path.join(root, name)}
+                        for name in sorted(names)
+                        if os.path.splitext(name)[1].lower() in IMAGE_EXTENSIONS
+                    )
             except OSError:
-                return []
-            return [
-                {ATTR_PATH: os.path.join(folder, name)}
-                for name in names
-                if os.path.splitext(name)[1].lower() in IMAGE_EXTENSIONS
-            ]
+                pass
+            return pictures
 
         return await hass.async_add_executor_job(_list)
 
+    return await _async_list_media_pictures(hass, media_content_id, recursive, 0)
+
+
+async def _async_list_media_pictures(
+    hass: HomeAssistant, media_content_id: str | None, recursive: bool, depth: int
+) -> list[Source]:
     try:
         browsed = await media_source.async_browse_media(hass, media_content_id)
     except media_source.MediaSourceError as ex:
         raise _error("download_failed", url=str(media_content_id), error=str(ex)) from ex
-    return [
-        {ATTR_MEDIA_CONTENT_ID: child.media_content_id}
-        for child in browsed.children or []
-        if child.media_class == MediaClass.IMAGE and child.can_play
-    ]
+    pictures: list[Source] = []
+    for child in browsed.children or []:
+        if child.media_class == MediaClass.IMAGE and child.can_play:
+            pictures.append({ATTR_MEDIA_CONTENT_ID: child.media_content_id})
+        elif recursive and child.can_expand and depth < MAX_FOLDER_DEPTH:
+            pictures.extend(await _async_list_media_pictures(hass, child.media_content_id, recursive, depth + 1))
+    return pictures

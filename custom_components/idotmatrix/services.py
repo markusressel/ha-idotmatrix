@@ -147,8 +147,9 @@ async def _start_slideshow(entity: IDotMatrixLight, call: ServiceCall) -> None:
     folder = data.get("folder")
     media_content_id = data.get(ATTR_MEDIA_CONTENT_ID)
     interval = data["interval"]
+    recursive = data["recursive"]
 
-    pictures = await async_list_pictures(hass, folder, media_content_id)
+    pictures = await async_list_pictures(hass, folder, media_content_id, recursive)
     if not pictures:
         raise vol.Invalid("There are no pictures in the folder")
 
@@ -164,7 +165,7 @@ async def _start_slideshow(entity: IDotMatrixLight, call: ServiceCall) -> None:
                     _LOGGER.warning("Could not show %s, skipping it", picture, exc_info=True)
                 await asyncio.sleep(interval)
             # new pictures may have been added
-            pictures = await async_list_pictures(hass, folder, media_content_id) or pictures
+            pictures = await async_list_pictures(hass, folder, media_content_id, recursive) or pictures
 
     device.stop_slideshow()
     device.slideshow = hass.async_create_background_task(_run(pictures), f"idotmatrix slideshow {device.address}")
@@ -298,6 +299,7 @@ def async_setup_services() -> None:
                 vol.Exclusive("folder", "folder"): cv.string,
                 vol.Exclusive(ATTR_MEDIA_CONTENT_ID, "folder"): _media_content_id,
                 vol.Optional("interval", default=30): vol.All(vol.Coerce(int), vol.Range(min=10, max=3600)),
+                vol.Optional("recursive", default=False): cv.boolean,
                 vol.Optional("shuffle", default=False): cv.boolean,
                 vol.Optional("resize_mode", default="fit"): vol.In(RESIZE_MODES),
                 vol.Optional("background_color", default=(0, 0, 0)): RGB,

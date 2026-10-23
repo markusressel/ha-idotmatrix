@@ -281,6 +281,10 @@ start_slideshow:
           min: 10
           max: 3600
           unit_of_measurement: s
+    recursive:
+      default: false
+      selector:
+        boolean:
     shuffle:
       default: false
       selector:
