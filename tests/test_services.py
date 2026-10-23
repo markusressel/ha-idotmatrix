@@ -413,3 +413,29 @@ async def test_image_entity_url_is_signed(hass: HomeAssistant, setup: MockConfig
 
     url = session.get.call_args.args[0]
     assert url.startswith("http://ha.local:8123/api/image_proxy/image.cover?authSig=")
+
+
+@pytest.mark.parametrize(
+    ("resolved", "fetched"),
+    [
+        ("/api/image_proxy_stream/image.cover", "/api/image_proxy/image.cover"),
+        ("/api/camera_proxy_stream/camera.door?token=1", "/api/camera_proxy/camera.door?token=1"),
+    ],
+)
+async def test_stream_of_a_media_source_becomes_the_current_picture(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, resolved: str, fetched: str
+) -> None:
+    session = _session()
+
+    with (
+        patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session),
+        patch(
+            "custom_components.idotmatrix.media.media_source.async_resolve_media",
+            AsyncMock(return_value=MagicMock(url=resolved)),
+        ),
+        patch("custom_components.idotmatrix.media.get_url", return_value="http://x"),
+        patch("custom_components.idotmatrix.media.async_sign_path", side_effect=lambda hass, path, *a, **kw: path),
+    ):
+        await _call(hass, "show_image", media_content_id="media-source://image/image.cover")
+
+    session.get.assert_called_once_with(f"http://x{fetched}")

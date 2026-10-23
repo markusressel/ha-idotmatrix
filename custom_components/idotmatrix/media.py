@@ -25,6 +25,7 @@ ATTR_MEDIA_CONTENT_ID = "media_content_id"
 
 _LOGGER = logging.getLogger(__name__)
 
+STREAM_PATHS = {"/api/image_proxy_stream/": "/api/image_proxy/", "/api/camera_proxy_stream/": "/api/camera_proxy/"}
 SIGNED_URL_LIFETIME = timedelta(minutes=5)
 MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif"}
@@ -62,6 +63,12 @@ async def async_fetch(hass: HomeAssistant, source: Source) -> tuple[str, bool]:
         url = play_media.url
     else:
         url = source[ATTR_URL]
+
+    # The streams are an endless MJPEG stream of the same pictures, which is no file, but the address without
+    # "_stream" gives the current picture. The image media source resolves to the stream.
+    for stream, single in STREAM_PATHS.items():
+        if url.startswith(stream):
+            url = single + url[len(stream) :]
 
     if url.startswith("/"):
         # f.e. an image entity or the cover of a media player, which Home Assistant serves itself. Some of them only
