@@ -14,6 +14,8 @@ import voluptuous as vol
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.idotmatrix.const import DOMAIN
+from custom_components.idotmatrix.media import async_list_pictures
+from homeassistant.components.media_player import MediaClass
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -291,6 +293,66 @@ async def test_slideshow_shows_animated_gifs_as_gifs(
     await _call(hass, "stop_slideshow")
 
     client.image.show_image_file.assert_not_awaited()
+
+
+async def test_slideshow_ignores_subfolders_unless_recursive(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path, fast_slideshow: None
+) -> None:
+    (tmp_path / "a.png").write_bytes(b"x")
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "b.png").write_bytes(b"x")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    await _call(hass, "start_slideshow", folder=str(tmp_path))
+    await _wait_for(lambda: len(_shown(client)) >= 3)
+    await _call(hass, "stop_slideshow")
+
+    assert set(_shown(client)) == {"a.png"}
+
+
+async def test_recursive_slideshow_includes_subfolders(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path, fast_slideshow: None
+) -> None:
+    (tmp_path / "a.png").write_bytes(b"x")
+    (tmp_path / "sub" / "deeper").mkdir(parents=True)
+    (tmp_path / "sub" / "b.png").write_bytes(b"x")
+    (tmp_path / "sub" / "deeper" / "c.jpg").write_bytes(b"x")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    await _call(hass, "start_slideshow", folder=str(tmp_path), recursive=True)
+    await _wait_for(lambda: len(_shown(client)) >= 3)
+    await _call(hass, "stop_slideshow")
+
+    assert _shown(client)[:3] == ["a.png", "b.png", "c.jpg"]
+
+
+async def test_recursive_listing_of_a_media_source_folder(hass: HomeAssistant) -> None:
+    def item(content_id: str, *, folder: bool) -> MagicMock:
+        return MagicMock(
+            media_content_id=content_id,
+            media_class=MediaClass.DIRECTORY if folder else MediaClass.IMAGE,
+            can_play=not folder,
+            can_expand=folder,
+        )
+
+    tree = {
+        "media-source://media_source/dpf/.": [item("media-source://media_source/dpf/a.png", folder=False),
+                                              item("media-source://media_source/dpf/sub", folder=True)],
+        "media-source://media_source/dpf/sub": [item("media-source://media_source/dpf/sub/b.png", folder=False)],
+    }
+
+    async def browse(_hass: HomeAssistant, content_id: str) -> MagicMock:
+        return MagicMock(children=tree[content_id])
+
+    with patch("custom_components.idotmatrix.media.media_source.async_browse_media", browse):
+        flat = await async_list_pictures(hass, None, "media-source://media_source/dpf/.")
+        deep = await async_list_pictures(hass, None, "media-source://media_source/dpf/.", recursive=True)
+
+    assert [p["media_content_id"] for p in flat] == ["media-source://media_source/dpf/a.png"]
+    assert [p["media_content_id"] for p in deep] == [
+        "media-source://media_source/dpf/a.png",
+        "media-source://media_source/dpf/sub/b.png",
+    ]
 
 
 async def test_slideshow_picks_up_new_pictures(
