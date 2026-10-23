@@ -9,6 +9,7 @@ from idotmatrix.modules.clock import ClockStyle
 from idotmatrix.modules.effect import EffectStyle
 from idotmatrix.modules.text import TextColorMode, TextMode
 from idotmatrix.util.image_utils import ResizeMode
+from PIL import UnidentifiedImageError
 import pytest
 import voluptuous as vol
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -148,6 +149,7 @@ async def test_show_gif_from_an_url(hass: HomeAssistant, setup: MockConfigEntry,
     response = MagicMock()
     response.raise_for_status = MagicMock()
     response.content.read = AsyncMock(return_value=b"GIF89a")
+    response.content_type = "image/gif"
     session = MagicMock()
     session.get.return_value.__aenter__ = AsyncMock(return_value=response)
     session.get.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -178,10 +180,11 @@ async def test_invalid_values_from_the_library_are_reported(
         await _call(hass, "show_text", text="x")
 
 
-def _session(content: bytes = b"png") -> MagicMock:
+def _session(content: bytes = b"png", content_type: str = "image/png") -> MagicMock:
     response = MagicMock()
     response.raise_for_status = MagicMock()
     response.content.read = AsyncMock(return_value=content)
+    response.content_type = content_type
     session = MagicMock()
     session.get.return_value.__aenter__ = AsyncMock(return_value=response)
     session.get.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -197,10 +200,11 @@ async def test_show_image_from_a_path_of_home_assistant(
     with (
         patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session),
         patch("custom_components.idotmatrix.media.get_url", return_value="http://ha.local:8123"),
+        patch("custom_components.idotmatrix.media.async_sign_path", side_effect=lambda hass, path, *a, **kw: path + "&authSig=1"),
     ):
         await _call(hass, "show_image", url="/api/media_player_proxy/media_player.x?token=abc")
 
-    session.get.assert_called_once_with("http://ha.local:8123/api/media_player_proxy/media_player.x?token=abc")
+    session.get.assert_called_once_with("http://ha.local:8123/api/media_player_proxy/media_player.x?token=abc&authSig=1")
     client.image.show_image_file.assert_awaited_once()
 
 
@@ -213,10 +217,8 @@ async def test_show_image_from_a_media_source(hass: HomeAssistant, setup: MockCo
         patch(
             "custom_components.idotmatrix.media.media_source.async_resolve_media", AsyncMock(return_value=play_media)
         ) as resolve,
-        patch(
-            "custom_components.idotmatrix.media.async_process_play_media_url",
-            side_effect=lambda hass, url: f"http://ha.local:8123{url}?authSig=1",
-        ),
+        patch("custom_components.idotmatrix.media.get_url", return_value="http://ha.local:8123"),
+        patch("custom_components.idotmatrix.media.async_sign_path", side_effect=lambda hass, path, *a, **kw: path + "?authSig=1"),
     ):
         await _call(hass, "show_image", media_content_id="media-source://media_source/local/a.png")
 
@@ -352,7 +354,8 @@ async def test_media_picker_value_is_accepted(hass: HomeAssistant, setup: MockCo
     with (
         patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session),
         patch("custom_components.idotmatrix.media.media_source.async_resolve_media", AsyncMock(return_value=play_media)),
-        patch("custom_components.idotmatrix.media.async_process_play_media_url", side_effect=lambda hass, url: f"http://x{url}"),
+        patch("custom_components.idotmatrix.media.get_url", return_value="http://x"),
+        patch("custom_components.idotmatrix.media.async_sign_path", side_effect=lambda hass, path, *a, **kw: path),
     ):
         await _call(
             hass,
@@ -364,3 +367,49 @@ async def test_media_picker_value_is_accepted(hass: HomeAssistant, setup: MockCo
         )
 
     session.get.assert_called_once_with("http://x/media/local/a.png")
+
+
+async def test_download_that_is_not_a_picture(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    session = _session(b"<html>login</html>", content_type="text/html")
+
+    with patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session):
+        with pytest.raises(HomeAssistantError, match="not a picture, but text/html"):
+            await _call(hass, "show_image", url="https://example.com/a.png")
+
+    client.image.show_image_file.assert_not_awaited()
+
+
+async def test_broken_picture_is_reported(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    client.image.show_image_file.side_effect = UnidentifiedImageError("cannot identify image file")
+    session = _session()
+
+    with patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session):
+        with pytest.raises(HomeAssistantError, match="cannot identify"):
+            await _call(hass, "show_image", url="https://example.com/a.png")
+
+async def test_image_entity_url_is_signed(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    """/api/image_proxy answers 403 without a token or signature."""
+    session = _session()
+
+    with (
+        patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session),
+        patch("custom_components.idotmatrix.media.get_url", return_value="http://ha.local:8123"),
+    ):
+        await _call(hass, "show_image", url="/api/image_proxy/image.cover")
+
+    url = session.get.call_args.args[0]
+    assert url.startswith("http://ha.local:8123/api/image_proxy/image.cover?authSig=")
+
+
+async def test_image_entity_url_is_signed(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    """/api/image_proxy answers 403 without a token or signature."""
+    session = _session()
+
+    with (
+        patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session),
+        patch("custom_components.idotmatrix.media.get_url", return_value="http://ha.local:8123"),
+    ):
+        await _call(hass, "show_image", url="/api/image_proxy/image.cover")
+
+    url = session.get.call_args.args[0]
+    assert url.startswith("http://ha.local:8123/api/image_proxy/image.cover?authSig=")

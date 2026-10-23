@@ -17,6 +17,7 @@ from idotmatrix import IDotMatrixClient, ScreenSize
 from idotmatrix.connection_manager import CommandRejectedError, ConnectionListener, UploadError
 from idotmatrix.transport import BleakTransport
 from idotmatrix.util.device_info import DeviceInfo
+from PIL import UnidentifiedImageError
 
 from homeassistant.components import bluetooth
 from homeassistant.components.bluetooth import BluetoothReachabilityIntent
@@ -208,7 +209,7 @@ class IDotMatrixDevice:
                 translation_key="command_failed",
                 translation_placeholders={"error": str(ex) or type(ex).__name__},
             ) from ex
-        except ValueError as ex:
+        except (ValueError, UnidentifiedImageError) as ex:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="invalid_value",
