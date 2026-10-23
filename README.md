@@ -122,7 +122,7 @@ Local files have to be in a folder that is listed in
 
 ```sh
 uv venv --python 3.14
-uv pip install -r requirements_test.txt idotmatrix-api-client==0.2.1   # or -e ../idotmatrix-api-client
+uv pip install -r requirements_test.txt idotmatrix-api-client==0.2.2   # or -e ../idotmatrix-api-client
 uv run --no-sync python -m pytest
 ```
 

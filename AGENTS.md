@@ -8,7 +8,7 @@ the protocol out of this repository, and add features to the library first if th
 ## Setup and commands
 
 - Python 3.14 (Home Assistant requires it), venv at `.venv`.
-- Install: `uv venv --python 3.14 && uv pip install -r requirements_test.txt idotmatrix-api-client==0.2.1`. To work with
+- Install: `uv venv --python 3.14 && uv pip install -r requirements_test.txt idotmatrix-api-client==0.2.2`. To work with
   a local checkout of the library use `-e ../idotmatrix-api-client` instead of the pinned release.
 - Tests: `.venv/bin/python -m pytest -q` (or `uv run --no-sync python -m pytest -q`).
 - CI (`.github/workflows`): `tests.yml` runs the tests, `validate.yml` runs hassfest and the HACS validation. All three
