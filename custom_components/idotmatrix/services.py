@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from idotmatrix.modules.effect import EffectStyle
 from idotmatrix.modules.text import TextColorMode, TextMode
+from idotmatrix.util.device_material import SLOTS
 from idotmatrix.util.image_utils import ResizeMode
 import voluptuous as vol
 
@@ -153,6 +154,12 @@ async def _start_slideshow(entity: IDotMatrixLight, call: ServiceCall) -> None:
     if not pictures:
         raise vol.Invalid("There are no pictures in the folder")
 
+    if data["store"]:
+        device.stop_slideshow()
+        await _async_store_pictures(entity, pictures, data)
+        device.async_content_changed()
+        return
+
     async def _run(pictures: list[Source]) -> None:
         while True:
             if data["shuffle"]:
@@ -170,6 +177,38 @@ async def _start_slideshow(entity: IDotMatrixLight, call: ServiceCall) -> None:
     device.stop_slideshow()
     device.slideshow = hass.async_create_background_task(_run(pictures), f"idotmatrix slideshow {device.address}")
     device.async_content_changed(keep_slideshow=True)
+
+
+async def _async_store_pictures(entity: IDotMatrixLight, pictures: list[Source], data: dict[str, Any]) -> None:
+    """
+    Stores the pictures in the slots of the display, which then cycles through them by itself, without any uploads
+    that interrupt the animation. As many pictures as there are slots are stored, the folder is not read again.
+    """
+    slots = sorted(data.get("slots", SLOTS))
+    if data["shuffle"]:
+        pictures = random.sample(pictures, len(pictures))
+    if len(pictures) > len(slots):
+        _LOGGER.info("Storing %d of the %d pictures, there are only %d slots", len(slots), len(pictures), len(slots))
+        pictures = pictures[: len(slots)]
+
+    files: list[tuple[str, bool]] = []
+    try:
+        for picture in pictures:
+            files.append(await async_fetch(entity.hass, picture))
+        await entity._device.call(
+            entity._device.client.materials.store(
+                [path for path, _ in files],
+                slots=slots,
+                display_time=data["interval"],
+                resize_mode=RESIZE_MODES[data["resize_mode"]],
+                palletize=data.get("palletize"),
+                background_color=data["background_color"],
+            )
+        )
+    finally:
+        for path, temporary in files:
+            if temporary:
+                await entity.hass.async_add_executor_job(os.unlink, path)
 
 
 async def _stop_slideshow(entity: IDotMatrixLight, call: ServiceCall) -> None:
@@ -300,6 +339,13 @@ def async_setup_services() -> None:
                 vol.Exclusive(ATTR_MEDIA_CONTENT_ID, "folder"): _media_content_id,
                 vol.Optional("interval", default=30): vol.All(vol.Coerce(int), vol.Range(min=10, max=3600)),
                 vol.Optional("recursive", default=False): cv.boolean,
+                vol.Optional("store", default=False): cv.boolean,
+                vol.Optional("slots"): vol.All(
+                    cv.ensure_list,
+                    [vol.All(vol.Coerce(int), vol.Range(min=0, max=SLOTS[-1]))],
+                    vol.Length(min=1),
+                    vol.Unique(),
+                ),
                 vol.Optional("shuffle", default=False): cv.boolean,
                 vol.Optional("resize_mode", default="fit"): vol.In(RESIZE_MODES),
                 vol.Optional("background_color", default=(0, 0, 0)): RGB,

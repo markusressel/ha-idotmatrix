@@ -64,7 +64,7 @@ All actions target the light of a display.
 | `idotmatrix.show_text` | Text with font size, mode (marquee, blinking, ...), speed and colors. |
 | `idotmatrix.show_image` | A picture from a file, an URL or a media source, scaled to the screen (`fit`, `fill`, `stretch`). |
 | `idotmatrix.show_gif` | An animated GIF from a file, an URL or a media source. |
-| `idotmatrix.start_slideshow` | The pictures of a folder (a folder of the file system or of a media source) one after another. The folder is read again every round, `recursive: true` includes its subfolders. Showing anything else ends it. |
+| `idotmatrix.start_slideshow` | The pictures of a folder (a folder of the file system or of a media source) one after another. The folder is read again every round, `recursive: true` includes its subfolders, `store: true` stores the pictures in the slots of the display instead (see below). Showing anything else ends it. |
 | `idotmatrix.stop_slideshow` | Ends the slideshow. |
 | `idotmatrix.show_clock` | The clock. Style, date, 12/24 hours and color that are not given are taken from the clock entities. |
 | `idotmatrix.set_effect` | An effect with 2 to 7 colors. |
@@ -106,6 +106,25 @@ data:
   recursive: true  # also the subfolders
 ```
 
+With `store: true` the pictures are not uploaded one after another while the slideshow runs: they are stored in the
+slots of the display (it has 12), which then cycles through them by itself, in the order of the slots. The animation
+is never interrupted by an upload and Bluetooth is not used afterwards, but the upload takes a while (about 2 s for a
+small GIF, up to 15 s for a large one, for each picture), the folder is not read again and only as many pictures as
+there are slots are stored. `interval` is the time each picture is shown. `slots` limits the slots that may be
+overwritten (all 12 by default, the others are not touched):
+
+```yaml
+action: idotmatrix.start_slideshow
+target:
+  entity_id: light.idm_123456
+data:
+  media_content_id: "media-source://media_source/local/party"
+  recursive: true
+  store: true
+  slots: ["0", "1", "2", "3", "4", "5"]
+  interval: 30
+```
+
 An URL that starts with `/` is loaded from Home Assistant itself, which makes it possible to show the cover of a media
 player: `url: "{{ state_attr('media_player.living_room', 'entity_picture') }}"`.
 
@@ -123,7 +142,7 @@ Local files have to be in a folder that is listed in
 
 ```sh
 uv venv --python 3.14
-uv pip install -r requirements_test.txt idotmatrix-api-client==0.2.2   # or -e ../idotmatrix-api-client
+uv pip install -r requirements_test.txt idotmatrix-api-client==0.3.0   # or -e ../idotmatrix-api-client
 uv run --no-sync python -m pytest
 ```
 

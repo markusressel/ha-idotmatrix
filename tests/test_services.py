@@ -355,6 +355,68 @@ async def test_recursive_listing_of_a_media_source_folder(hass: HomeAssistant) -
     ]
 
 
+async def test_stored_slideshow_puts_the_pictures_into_the_slots(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path
+) -> None:
+    for name in ("b.jpg", "a.png", "c.png"):
+        (tmp_path / name).write_bytes(b"x")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    await _call(hass, "start_slideshow", folder=str(tmp_path), store=True, slots=[7, 4, 5], interval=20)
+
+    client.materials.store.assert_awaited_once()
+    args, kwargs = client.materials.store.await_args
+    assert [Path(path).name for path in args[0]] == ["a.png", "b.jpg", "c.png"]
+    assert kwargs["slots"] == [4, 5, 7]
+    assert kwargs["display_time"] == 20
+    # the display cycles by itself, nothing runs in Home Assistant
+    assert hass.states.get(LIGHT) is not None
+    client.image.show_image_file.assert_not_awaited()
+
+
+async def test_stored_slideshow_uses_all_slots_by_default_and_only_as_many_as_there_are(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path
+) -> None:
+    for number in range(15):
+        (tmp_path / f"{number:02}.png").write_bytes(b"x")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    await _call(hass, "start_slideshow", folder=str(tmp_path), store=True)
+
+    args, kwargs = client.materials.store.await_args
+    assert kwargs["slots"] == list(range(12))
+    assert [Path(path).name for path in args[0]] == [f"{number:02}.png" for number in range(12)]
+
+
+async def test_stored_slideshow_ends_a_running_slideshow(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path, fast_slideshow: None
+) -> None:
+    (tmp_path / "a.png").write_bytes(b"x")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+    await _call(hass, "start_slideshow", folder=str(tmp_path))
+    await _wait_for(lambda: len(_shown(client)) >= 1)
+
+    await _call(hass, "start_slideshow", folder=str(tmp_path), store=True)
+
+    shown = len(client.image.show_image_file.await_args_list)
+    await asyncio.sleep(0.05)
+    assert len(client.image.show_image_file.await_args_list) == shown
+    client.materials.store.assert_awaited_once()
+
+
+@pytest.mark.parametrize("slots", [[12], [-1], [1, 1], []])
+async def test_stored_slideshow_rejects_invalid_slots(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path, slots: list[int]
+) -> None:
+    (tmp_path / "a.png").write_bytes(b"x")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    with pytest.raises(vol.Invalid):
+        await _call(hass, "start_slideshow", folder=str(tmp_path), store=True, slots=slots)
+
+    client.materials.store.assert_not_awaited()
+
+
 async def test_slideshow_picks_up_new_pictures(
     hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path, fast_slideshow: None
 ) -> None:

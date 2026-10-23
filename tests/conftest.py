@@ -53,6 +53,7 @@ def client(device_info: DeviceInfo) -> Generator[MagicMock]:
             "graffiti",
             "eco",
             "music_sync",
+            "materials",
         ):
             setattr(client, module, MagicMock())
         for module, methods in {
@@ -69,6 +70,7 @@ def client(device_info: DeviceInfo) -> Generator[MagicMock]:
             "graffiti": ["set_pixels"],
             "eco": ["set_mode"],
             "music_sync": ["set_mic_type"],
+            "materials": ["store", "clear"],
         }.items():
             for method in methods:
                 setattr(getattr(client, module), method, AsyncMock())
