@@ -76,7 +76,7 @@ async def test_lights_and_switches_are_not_marked_as_assumed_state(hass: HomeAss
         "light.idm_123456",
         "light.idm_123456_clock",
         "switch.idm_123456_flip_display",
-        "switch.idm_123456_night_mode",
+        "switch.idm_123456_night_mode_enabled",
         "switch.idm_123456_clock_shows_date",
     ):
         assert "assumed_state" not in hass.states.get(entity_id).attributes, entity_id
