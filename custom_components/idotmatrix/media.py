@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import tempfile
 from typing import Any
@@ -20,6 +21,8 @@ from .const import DOMAIN
 ATTR_PATH = "path"
 ATTR_URL = "url"
 ATTR_MEDIA_CONTENT_ID = "media_content_id"
+
+_LOGGER = logging.getLogger(__name__)
 
 MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif"}
@@ -65,11 +68,16 @@ async def async_fetch(hass: HomeAssistant, source: Source) -> tuple[str, bool]:
     try:
         async with asyncio.timeout(30), session.get(url) as response:
             response.raise_for_status()
+            content_type = response.content_type
             content = await response.content.read(MAX_DOWNLOAD_BYTES + 1)
     except (TimeoutError, Exception) as ex:
         raise _error("download_failed", url=url, error=str(ex) or type(ex).__name__) from ex
     if len(content) > MAX_DOWNLOAD_BYTES:
         raise _error("download_too_large")
+    if not content_type.startswith("image/") and content_type != "application/octet-stream":
+        # f.e. a login page or an error message, which would only fail later with a hard to understand error
+        _LOGGER.warning("%s answered with %s, starting with %r", url, content_type, content[:200])
+        raise _error("not_an_image", url=url, content_type=content_type)
 
     def _write() -> str:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".img") as file:

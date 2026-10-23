@@ -131,6 +131,9 @@
     "download_failed": {
       "message": "Could not download {url}: {error}"
     },
+    "not_an_image": {
+      "message": "{url} is not a picture, but {content_type}"
+    },
     "download_too_large": {
       "message": "The download is larger than 20 MB"
     }

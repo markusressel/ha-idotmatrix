@@ -9,6 +9,7 @@ from idotmatrix.modules.clock import ClockStyle
 from idotmatrix.modules.effect import EffectStyle
 from idotmatrix.modules.text import TextColorMode, TextMode
 from idotmatrix.util.image_utils import ResizeMode
+from PIL import UnidentifiedImageError
 import pytest
 import voluptuous as vol
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -148,6 +149,7 @@ async def test_show_gif_from_an_url(hass: HomeAssistant, setup: MockConfigEntry,
     response = MagicMock()
     response.raise_for_status = MagicMock()
     response.content.read = AsyncMock(return_value=b"GIF89a")
+    response.content_type = "image/gif"
     session = MagicMock()
     session.get.return_value.__aenter__ = AsyncMock(return_value=response)
     session.get.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -178,10 +180,11 @@ async def test_invalid_values_from_the_library_are_reported(
         await _call(hass, "show_text", text="x")
 
 
-def _session(content: bytes = b"png") -> MagicMock:
+def _session(content: bytes = b"png", content_type: str = "image/png") -> MagicMock:
     response = MagicMock()
     response.raise_for_status = MagicMock()
     response.content.read = AsyncMock(return_value=content)
+    response.content_type = content_type
     session = MagicMock()
     session.get.return_value.__aenter__ = AsyncMock(return_value=response)
     session.get.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -364,3 +367,22 @@ async def test_media_picker_value_is_accepted(hass: HomeAssistant, setup: MockCo
         )
 
     session.get.assert_called_once_with("http://x/media/local/a.png")
+
+
+async def test_download_that_is_not_a_picture(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    session = _session(b"<html>login</html>", content_type="text/html")
+
+    with patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session):
+        with pytest.raises(HomeAssistantError, match="not a picture, but text/html"):
+            await _call(hass, "show_image", url="https://example.com/a.png")
+
+    client.image.show_image_file.assert_not_awaited()
+
+
+async def test_broken_picture_is_reported(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    client.image.show_image_file.side_effect = UnidentifiedImageError("cannot identify image file")
+    session = _session()
+
+    with patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session):
+        with pytest.raises(HomeAssistantError, match="cannot identify"):
+            await _call(hass, "show_image", url="https://example.com/a.png")
