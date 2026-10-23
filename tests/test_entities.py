@@ -68,3 +68,15 @@ async def test_buttons(hass: HomeAssistant, setup: MockConfigEntry, client: Magi
     client.common.reset.assert_awaited_once()
     client.common.freeze_screen.assert_awaited_once()
     client.common.get_device_info.assert_awaited()
+
+
+async def test_lights_and_switches_are_not_marked_as_assumed_state(hass: HomeAssistant, setup: MockConfigEntry) -> None:
+    """Home Assistant shows two lightning buttons instead of a toggle for entities with an assumed state."""
+    for entity_id in (
+        "light.idm_123456",
+        "light.idm_123456_clock",
+        "switch.idm_123456_flip_display",
+        "switch.idm_123456_night_mode",
+        "switch.idm_123456_clock_shows_date",
+    ):
+        assert "assumed_state" not in hass.states.get(entity_id).attributes, entity_id

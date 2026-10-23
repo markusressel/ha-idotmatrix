@@ -34,7 +34,7 @@ If nothing is discovered, add the integration manually. It lists every display t
 
 ## Entities
 
-The display does not report its state, so the state of the entities is assumed (the last thing that was sent) and restored after a restart.
+The display does not report its state, so the state of the entities is assumed (the last thing that was sent) and restored after a restart. Home Assistant would show two lightning buttons instead of a toggle for entities that are marked as "assumed", so they are shown as normal toggles.
 
 | Entity | What it does |
 |---|---|
