@@ -379,11 +379,15 @@
         },
         "media_content_id": {
           "name": "Media folder",
-          "description": "A folder of a media source of Home Assistant."
+          "description": "A folder of a media source of Home Assistant, f.e. media-source://media_source/local/party/. The media browser cannot select folders, so type the id."
         },
         "interval": {
           "name": "Interval",
           "description": "How long each picture is shown. Uploading takes a few seconds."
+        },
+        "recursive": {
+          "name": "Include subfolders",
+          "description": "Also shows the pictures of the subfolders (up to 8 levels deep)."
         },
         "shuffle": {
           "name": "Shuffle",
