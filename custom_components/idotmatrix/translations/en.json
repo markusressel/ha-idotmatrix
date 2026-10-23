@@ -1,0 +1,403 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "description": "Choose the display you want to add. Displays that are in range of a Bluetooth adapter or Bluetooth proxy are listed.",
+        "data": {
+          "address": "Display"
+        }
+      },
+      "bluetooth_confirm": {
+        "description": "Do you want to set up {name}? Home Assistant connects to the display once to find out the size of its screen."
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the display. Make sure it is powered on, in range of a Bluetooth adapter or proxy and not connected to the iDotMatrix app.",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This display is already configured",
+      "already_in_progress": "A setup of this display is already in progress",
+      "no_devices_found": "No iDotMatrix displays found. Make sure they are powered on, in range and not connected to the iDotMatrix app.",
+      "not_supported": "This display type is not supported yet"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "iDotMatrix options",
+        "description": "Every new Bluetooth connection makes the display play an animation, so the connection is kept open. You can close it after some idle time to free the display for the iDotMatrix app, or the connection slot of a Bluetooth proxy.",
+        "data": {
+          "idle_timeout": "Close the connection after"
+        },
+        "data_description": {
+          "idle_timeout": "Seconds without a command until the connection is closed. 0 keeps it open."
+        }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "flip": {
+        "name": "Flip display"
+      }
+    },
+    "button": {
+      "sync_time": {
+        "name": "Sync time"
+      },
+      "freeze": {
+        "name": "Freeze or unfreeze"
+      }
+    },
+    "select": {
+      "clock_style": {
+        "name": "Clock style",
+        "state": {
+          "rgb_swipe_outline": "RGB swipe outline",
+          "christmas_tree": "Christmas tree",
+          "checkers": "Checkers",
+          "color": "Color",
+          "hourglass": "Hourglass",
+          "alarm_clock": "Alarm clock",
+          "outlines": "Outlines",
+          "rgb_corners": "RGB corners"
+        }
+      },
+      "music_sync": {
+        "name": "Music sync scene",
+        "state": {
+          "1": "Scene 1",
+          "2": "Scene 2",
+          "3": "Scene 3",
+          "4": "Scene 4",
+          "5": "Scene 5"
+        }
+      }
+    },
+    "text": {
+      "message": {
+        "name": "Message"
+      }
+    }
+  },
+  "exceptions": {
+    "device_not_found": {
+      "message": "Could not find the display: {reason}"
+    },
+    "command_failed": {
+      "message": "The display did not accept the command: {error}"
+    },
+    "invalid_value": {
+      "message": "Invalid value: {error}"
+    },
+    "path_not_allowed": {
+      "message": "Home Assistant is not allowed to read {path}. Add its folder to allowlist_external_dirs in the configuration."
+    },
+    "file_not_found": {
+      "message": "The file {path} does not exist"
+    },
+    "download_failed": {
+      "message": "Could not download {url}: {error}"
+    },
+    "download_too_large": {
+      "message": "The download is larger than 20 MB"
+    }
+  },
+  "services": {
+    "show_image": {
+      "name": "Show image",
+      "description": "Shows a picture on the display. The picture is scaled to the screen.",
+      "fields": {
+        "path": {
+          "name": "File path",
+          "description": "Path of an image file. Its folder must be listed in allowlist_external_dirs."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Address of an image to download."
+        },
+        "resize_mode": {
+          "name": "Resize mode",
+          "description": "Fit keeps the whole picture (with a background), fill crops it to cover the screen, stretch distorts it."
+        },
+        "palletize": {
+          "name": "Reduce colors",
+          "description": "Reduces the picture to a color palette. Good for pixel art, bad for photos."
+        },
+        "background_color": {
+          "name": "Background color",
+          "description": "Color of the bars if the picture does not have the shape of the screen."
+        },
+        "png": {
+          "name": "Send as PNG",
+          "description": "Experimental: sends a smaller PNG file instead of raw pixels, which is a little faster."
+        }
+      }
+    },
+    "show_gif": {
+      "name": "Show GIF",
+      "description": "Uploads an animated GIF and plays it.",
+      "fields": {
+        "path": {
+          "name": "File path",
+          "description": "Path of a GIF file. Its folder must be listed in allowlist_external_dirs."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Address of a GIF to download."
+        },
+        "resize_mode": {
+          "name": "Resize mode",
+          "description": "Fit keeps the whole picture (with a background), fill crops it to cover the screen, stretch distorts it."
+        },
+        "palletize": {
+          "name": "Reduce colors",
+          "description": "Reduces the colors of the frames. Good for pixel art."
+        },
+        "background_color": {
+          "name": "Background color",
+          "description": "Color for transparent pixels and bars."
+        },
+        "duration_per_frame": {
+          "name": "Frame duration",
+          "description": "Duration of each frame in milliseconds. Defaults to the one of the GIF."
+        }
+      }
+    },
+    "show_text": {
+      "name": "Show text",
+      "description": "Shows text on the display.",
+      "fields": {
+        "text": {
+          "name": "Text",
+          "description": "The text to show."
+        },
+        "font_size": {
+          "name": "Font size",
+          "description": "Size of the font."
+        },
+        "mode": {
+          "name": "Mode",
+          "description": "How the text moves."
+        },
+        "speed": {
+          "name": "Speed",
+          "description": "Speed of the movement, 0 to 100."
+        },
+        "color_mode": {
+          "name": "Color mode",
+          "description": "White, the given color or a rainbow."
+        },
+        "color": {
+          "name": "Color",
+          "description": "Color of the text, for the color mode RGB."
+        },
+        "background_color": {
+          "name": "Background color",
+          "description": "Color behind the text. Black by default."
+        }
+      }
+    },
+    "show_clock": {
+      "name": "Show clock",
+      "description": "Shows the clock.",
+      "fields": {
+        "style": {
+          "name": "Style",
+          "description": "The look of the clock."
+        },
+        "show_date": {
+          "name": "Show date",
+          "description": "Whether to show the date."
+        },
+        "hour24": {
+          "name": "24 hour format",
+          "description": "Show 24 hours instead of 12."
+        },
+        "color": {
+          "name": "Color",
+          "description": "Color of the clock."
+        }
+      }
+    },
+    "set_effect": {
+      "name": "Show effect",
+      "description": "Shows an animated effect with the given colors.",
+      "fields": {
+        "style": {
+          "name": "Style",
+          "description": "The effect."
+        },
+        "colors": {
+          "name": "Colors",
+          "description": "Two to seven colors as [red, green, blue] lists."
+        }
+      }
+    },
+    "countdown": {
+      "name": "Countdown",
+      "description": "Controls the countdown.",
+      "fields": {
+        "action": {
+          "name": "Action",
+          "description": "What to do with the countdown."
+        },
+        "minutes": {
+          "name": "Minutes",
+          "description": "Minutes to count down from."
+        },
+        "seconds": {
+          "name": "Seconds",
+          "description": "Seconds to count down from."
+        }
+      }
+    },
+    "chronograph": {
+      "name": "Chronograph",
+      "description": "Controls the stopwatch.",
+      "fields": {
+        "action": {
+          "name": "Action",
+          "description": "What to do with the stopwatch."
+        }
+      }
+    },
+    "scoreboard": {
+      "name": "Scoreboard",
+      "description": "Shows a scoreboard.",
+      "fields": {
+        "score_1": {
+          "name": "Score 1",
+          "description": "Score of the first side, 0 to 999."
+        },
+        "score_2": {
+          "name": "Score 2",
+          "description": "Score of the second side, 0 to 999."
+        }
+      }
+    },
+    "set_pixels": {
+      "name": "Set pixels",
+      "description": "Colors single pixels of the display, on top of what is shown.",
+      "fields": {
+        "color": {
+          "name": "Color",
+          "description": "Color of the pixels."
+        },
+        "pixels": {
+          "name": "Pixels",
+          "description": "List of [x, y] coordinates, starting at 0."
+        }
+      }
+    },
+    "set_eco": {
+      "name": "Set eco mode",
+      "description": "Dims the display between two times.",
+      "fields": {
+        "enabled": {
+          "name": "Enabled",
+          "description": "Whether the eco mode is on."
+        },
+        "start_time": {
+          "name": "Start time",
+          "description": "When the display is dimmed."
+        },
+        "end_time": {
+          "name": "End time",
+          "description": "When the display is back to normal."
+        },
+        "brightness": {
+          "name": "Brightness",
+          "description": "Brightness in percent while dimmed."
+        }
+      }
+    },
+    "music_sync": {
+      "name": "Music sync",
+      "description": "Lets the display react to sound with its own microphone. Show something else (f.e. the clock) to leave it.",
+      "fields": {
+        "scene": {
+          "name": "Scene",
+          "description": "The scene, 1 to 5."
+        },
+        "sensitivity": {
+          "name": "Sensitivity",
+          "description": "Sensitivity of the microphone, 0 to 100."
+        }
+      }
+    }
+  },
+  "selector": {
+    "resize_mode": {
+      "options": {
+        "fit": "Fit",
+        "fill": "Fill",
+        "stretch": "Stretch"
+      }
+    },
+    "text_mode": {
+      "options": {
+        "replace": "Replace",
+        "marquee": "Marquee",
+        "reversed_marquee": "Reversed marquee",
+        "vertical_rising_marquee": "Vertical rising",
+        "vertical_lowering_marquee": "Vertical lowering",
+        "blinking": "Blinking",
+        "fading": "Fading",
+        "tetris": "Tetris",
+        "filling": "Filling"
+      }
+    },
+    "text_color_mode": {
+      "options": {
+        "white": "White",
+        "rgb": "Color",
+        "rainbow_1": "Rainbow 1",
+        "rainbow_2": "Rainbow 2",
+        "rainbow_3": "Rainbow 3",
+        "rainbow_4": "Rainbow 4"
+      }
+    },
+    "clock_style_service": {
+      "options": {
+        "rgbswipeoutline": "RGB swipe outline",
+        "christmastree": "Christmas tree",
+        "checkers": "Checkers",
+        "color": "Color",
+        "hourglass": "Hourglass",
+        "alarmclock": "Alarm clock",
+        "outlines": "Outlines",
+        "rgbcorners": "RGB corners"
+      }
+    },
+    "effect_style": {
+      "options": {
+        "gradient_horizontal_rainbow": "Horizontal gradient",
+        "random_colored_pixels_on_black": "Random colored pixels on black",
+        "random_white_pixels_on_changing_background": "Random white pixels",
+        "vertical_rainbow": "Vertical gradient",
+        "diagonal_right_rainbow": "Diagonal right",
+        "diagonal_left_rainbow_on_black": "Diagonal left on black",
+        "random_colored_pixels": "Random colored pixels"
+      }
+    },
+    "countdown_action": {
+      "options": {
+        "start": "Start",
+        "pause": "Pause",
+        "restart": "Restart",
+        "stop": "Stop"
+      }
+    },
+    "chronograph_action": {
+      "options": {
+        "start": "Start",
+        "pause": "Pause",
+        "resume": "Resume",
+        "reset": "Reset"
+      }
+    }
+  }
+}
