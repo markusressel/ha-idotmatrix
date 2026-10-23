@@ -9,6 +9,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.idotmatrix.const import CONF_IDLE_TIMEOUT, CONF_SCREEN_SIZE, DOMAIN
 from homeassistant import config_entries
 from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -55,7 +56,39 @@ async def test_bluetooth_discovery(hass: HomeAssistant, ble_device, client: Magi
     assert result["title"] == NAME
     assert result["data"] == {CONF_ADDRESS: ADDRESS, CONF_NAME: NAME, CONF_SCREEN_SIZE: "64x64"}
     assert result["result"].unique_id == ADDRESS
+
+
+async def test_the_connection_of_the_flow_is_handed_to_the_entry(
+    hass: HomeAssistant, ble_device, client: MagicMock, reachable: None
+) -> None:
+    """Every connection makes the display play an animation, so the entry must not connect a second time."""
+    from custom_components.idotmatrix import device as device_module
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_BLUETOOTH}, data=_service_info(ble_device)
+    )
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], user_input={})
+    await hass.async_block_till_done()
+
+    assert result["result"].state is ConfigEntryState.LOADED
+    assert device_module.IDotMatrixClient.call_count == 1
+    client.disconnect.assert_not_awaited()
+    assert client.screen_size.name == "SIZE_64x64"
+    assert not hass.data[DOMAIN]["pending_devices"]
+
+
+async def test_the_connection_of_a_failed_flow_is_closed(
+    hass: HomeAssistant, ble_device, client: MagicMock, reachable: None
+) -> None:
+    client.common.get_device_info.return_value = None
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_BLUETOOTH}, data=_service_info(ble_device)
+    )
+
+    await hass.config_entries.flow.async_configure(result["flow_id"], user_input={})
+
     client.disconnect.assert_awaited()
+    assert not hass.data.get(DOMAIN, {}).get("pending_devices")
 
 
 async def test_bluetooth_discovery_of_a_configured_display_is_aborted(

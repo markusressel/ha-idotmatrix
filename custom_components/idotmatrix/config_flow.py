@@ -24,6 +24,7 @@ from .const import (
     DOMAIN,
     MAX_IDLE_TIMEOUT,
     MIN_IDLE_TIMEOUT,
+    PENDING_DEVICES,
     SCREEN_SIZES,
 )
 from .device import IDotMatrixDevice
@@ -147,12 +148,22 @@ class IDotMatrixConfigFlow(ConfigFlow, domain=DOMAIN):
             address=discovery_info.address,
             name=discovery_info.name,
             screen_size=ScreenSize.SIZE_64x64,
-            idle_timeout=0,
+            idle_timeout=DEFAULT_IDLE_TIMEOUT,
         )
         try:
-            return await device.async_sync_time()
-        finally:
+            info = await device.async_sync_time()
+        except BaseException:
             await device.async_disconnect()
+            raise
+
+        if info is None or info.screen_size is None:
+            await device.async_disconnect()
+            return info
+
+        # every connection makes the display play an animation, so the entry takes over this one
+        device.set_screen_size(info.screen_size)
+        self.hass.data.setdefault(DOMAIN, {}).setdefault(PENDING_DEVICES, {})[discovery_info.address] = device
+        return info
 
     @staticmethod
     @callback

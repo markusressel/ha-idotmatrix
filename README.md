@@ -30,7 +30,7 @@ If nothing is discovered, add the integration manually. It lists every display t
 
 | Option | Default | |
 |---|---|---|
-| Close the connection after | 60 s | The display accepts one connection at a time and a Bluetooth proxy has few connection slots, so the connection is closed after it was not used for a while and opened again with the next command. |
+| Close the connection after | 0 (never) | Every new Bluetooth connection makes the display play a big, bright animation, so the connection is **kept open**. Set a number of seconds to close it after that much idle time, which frees the display for the iDotMatrix app and the connection slot of a Bluetooth proxy, at the price of the animation with the next command. |
 
 ## Entities
 
@@ -90,7 +90,8 @@ Local files have to be in a folder that is listed in
 
 ## Good to know
 
-- The display accepts **one** connection. If the iDotMatrix app is connected, Home Assistant cannot connect, and the other way round. The integration closes its connection when idle.
+- The display accepts **one** connection. While Home Assistant is connected, the iDotMatrix app cannot connect, and the other way round. Set the idle timeout in the options if you want to use the app now and then.
+- Every new connection makes the display play an animation, which is why the connection is kept open (and checked once a minute, to notice a display that was unplugged). It is opened again with the next command after it was lost. Adding the display opens a single connection that the integration keeps.
 - Images and GIFs take a second or two to upload.
 - The state of the entities is assumed. If someone changes the display with the app or the remote, Home Assistant does not notice.
 

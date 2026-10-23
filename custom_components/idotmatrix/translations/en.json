@@ -27,12 +27,12 @@
     "step": {
       "init": {
         "title": "iDotMatrix options",
-        "description": "The display accepts one Bluetooth connection at a time and Bluetooth proxies have a limited number of connection slots, so the connection is closed after it was not used for a while.",
+        "description": "Every new Bluetooth connection makes the display play an animation, so the connection is kept open. You can close it after some idle time to free the display for the iDotMatrix app, or the connection slot of a Bluetooth proxy.",
         "data": {
           "idle_timeout": "Close the connection after"
         },
         "data_description": {
-          "idle_timeout": "Seconds without a command until the connection is closed."
+          "idle_timeout": "Seconds without a command until the connection is closed. 0 keeps it open."
         }
       }
     }

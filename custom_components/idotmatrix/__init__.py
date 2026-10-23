@@ -9,12 +9,12 @@ from bleak.exc import BleakError
 from homeassistant.components import bluetooth
 from homeassistant.components.bluetooth.match import ADDRESS, BluetoothCallbackMatcher
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_ADDRESS, CONF_NAME, Platform
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.const import CONF_ADDRESS, CONF_NAME, EVENT_HOMEASSISTANT_STOP, Platform
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 
-from .const import CONF_IDLE_TIMEOUT, CONF_SCREEN_SIZE, DEFAULT_IDLE_TIMEOUT, DOMAIN, SCREEN_SIZES
+from .const import CONF_IDLE_TIMEOUT, CONF_SCREEN_SIZE, DEFAULT_IDLE_TIMEOUT, DOMAIN, PENDING_DEVICES, SCREEN_SIZES
 from .device import IDotMatrixDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,20 +27,27 @@ type IDotMatrixConfigEntry = ConfigEntry[IDotMatrixDevice]
 async def async_setup_entry(hass: HomeAssistant, entry: IDotMatrixConfigEntry) -> bool:
     """Set up an iDotMatrix display from a config entry."""
     address: str = entry.data[CONF_ADDRESS]
-    try:
-        device = IDotMatrixDevice(
-            hass,
-            address=address,
-            name=entry.data.get(CONF_NAME) or entry.title,
-            screen_size=SCREEN_SIZES[entry.data[CONF_SCREEN_SIZE]],
-            idle_timeout=entry.options.get(CONF_IDLE_TIMEOUT, DEFAULT_IDLE_TIMEOUT),
-        )
-    except BleakError as ex:
-        raise ConfigEntryNotReady(
-            translation_domain=DOMAIN,
-            translation_key="device_not_found",
-            translation_placeholders={"reason": str(ex)},
-        ) from ex
+    idle_timeout = entry.options.get(CONF_IDLE_TIMEOUT, DEFAULT_IDLE_TIMEOUT)
+
+    # the config flow leaves the display connected, a new connection would make it play its animation again
+    device: IDotMatrixDevice | None = hass.data.get(DOMAIN, {}).get(PENDING_DEVICES, {}).pop(address, None)
+    if device is not None:
+        device.set_idle_timeout(idle_timeout)
+    else:
+        try:
+            device = IDotMatrixDevice(
+                hass,
+                address=address,
+                name=entry.data.get(CONF_NAME) or entry.title,
+                screen_size=SCREEN_SIZES[entry.data[CONF_SCREEN_SIZE]],
+                idle_timeout=idle_timeout,
+            )
+        except BleakError as ex:
+            raise ConfigEntryNotReady(
+                translation_domain=DOMAIN,
+                translation_key="device_not_found",
+                translation_placeholders={"reason": str(ex)},
+            ) from ex
 
     @callback
     def _async_update_ble(
@@ -73,6 +80,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: IDotMatrixConfigEntry) -
                 registry.async_update_device(registered.id, sw_version=info.firmware_version)
 
     entry.async_on_unload(device.add_connected_listener(_on_connected))
+
+    async def _async_stop(_event: Event) -> None:
+        """Close the connection cleanly, so the display is free for the next connection."""
+        await device.async_disconnect()
+
+    entry.async_on_unload(hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, _async_stop))
 
     entry.runtime_data = device
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

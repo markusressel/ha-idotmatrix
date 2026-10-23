@@ -23,7 +23,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_call_later
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .const import DOMAIN, HEARTBEAT_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -85,6 +85,24 @@ class IDotMatrixDevice:
         self.client.add_connection_listener(
             ConnectionListener(on_connected=self._on_connected, on_disconnected=self._on_disconnected)
         )
+        self.set_idle_timeout(idle_timeout)
+
+    def set_idle_timeout(self, idle_timeout: float) -> None:
+        """
+        Sets after how many seconds without a command the connection is closed. 0 keeps it open, and checks
+        that the display is still there, because every new connection makes the display play an animation.
+        """
+        self.idle_timeout = idle_timeout
+        self.client.set_heartbeat(None if idle_timeout else HEARTBEAT_INTERVAL)
+        if idle_timeout:
+            self._restart_idle_timer()
+        else:
+            self._stop_idle_timer()
+
+    def set_screen_size(self, screen_size: ScreenSize) -> None:
+        """Sets the size of the screen, after it was found out."""
+        self.screen_size = screen_size
+        self.client.screen_size = screen_size
 
     # -- connection ---------------------------------------------------------------------------------------------
 

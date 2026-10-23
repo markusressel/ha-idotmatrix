@@ -9,6 +9,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from custom_components.idotmatrix.const import CONF_IDLE_TIMEOUT
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
@@ -16,13 +17,41 @@ from homeassistant.util import dt as dt_util
 from .conftest import ADDRESS
 
 
-async def test_the_connection_is_closed_when_it_is_idle(
+async def _setup(hass: HomeAssistant, config_entry: MockConfigEntry, idle_timeout: int | None) -> None:
+    config_entry.add_to_hass(hass)
+    if idle_timeout is not None:
+        hass.config_entries.async_update_entry(config_entry, options={CONF_IDLE_TIMEOUT: idle_timeout})
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_the_connection_is_kept_open_by_default(
     hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock
 ) -> None:
-    device = setup.runtime_data
     client.disconnect.reset_mock()
 
-    await device.call(client.common.turn_on())
+    with patch("custom_components.idotmatrix.device.async_call_later") as call_later:
+        await setup.runtime_data.call(client.common.turn_on())
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(hours=3))
+    await hass.async_block_till_done()
+
+    call_later.assert_not_called()
+    client.disconnect.assert_not_awaited()
+
+
+async def test_a_connection_that_is_kept_open_is_checked_with_the_heartbeat(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock
+) -> None:
+    client.set_heartbeat.assert_called_with(60)
+
+
+async def test_the_connection_is_closed_when_it_is_idle(
+    hass: HomeAssistant, config_entry: MockConfigEntry, client: MagicMock, reachable: None
+) -> None:
+    await _setup(hass, config_entry, 60)
+    client.disconnect.reset_mock()
+
+    await config_entry.runtime_data.call(client.common.turn_on())
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=30))
     await hass.async_block_till_done()
     client.disconnect.assert_not_awaited()
@@ -31,28 +60,14 @@ async def test_the_connection_is_closed_when_it_is_idle(
     await hass.async_block_till_done()
 
     client.disconnect.assert_awaited_once()
-
-
-async def test_the_idle_timeout_can_be_configured(
-    hass: HomeAssistant, config_entry: MockConfigEntry, client: MagicMock, reachable: None
-) -> None:
-    config_entry.add_to_hass(hass)
-    hass.config_entries.async_update_entry(config_entry, options={CONF_IDLE_TIMEOUT: 10})
-    await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
-    client.disconnect.reset_mock()
-
-    await config_entry.runtime_data.call(client.common.turn_on())
-    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=11))
-    await hass.async_block_till_done()
-
-    client.disconnect.assert_awaited_once()
+    client.set_heartbeat.assert_called_with(None)
 
 
 async def test_a_new_command_restarts_the_idle_timer(
-    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock
+    hass: HomeAssistant, config_entry: MockConfigEntry, client: MagicMock, reachable: None
 ) -> None:
-    device = setup.runtime_data
+    await _setup(hass, config_entry, 60)
+    device = config_entry.runtime_data
     cancels = [MagicMock(), MagicMock()]
 
     with patch("custom_components.idotmatrix.device.async_call_later", side_effect=cancels) as call_later:
@@ -64,18 +79,15 @@ async def test_a_new_command_restarts_the_idle_timer(
     cancels[1].assert_not_called()
 
 
-async def test_no_idle_timer_without_a_timeout(
-    hass: HomeAssistant, config_entry: MockConfigEntry, client: MagicMock, reachable: None
+async def test_the_connection_is_closed_when_home_assistant_stops(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock
 ) -> None:
-    config_entry.add_to_hass(hass)
-    hass.config_entries.async_update_entry(config_entry, options={CONF_IDLE_TIMEOUT: 0})
-    await hass.config_entries.async_setup(config_entry.entry_id)
+    client.disconnect.reset_mock()
+
+    hass.bus.async_fire(EVENT_HOMEASSISTANT_STOP)
     await hass.async_block_till_done()
 
-    with patch("custom_components.idotmatrix.device.async_call_later") as call_later:
-        await config_entry.runtime_data.call(client.common.turn_on())
-
-    call_later.assert_not_called()
+    client.disconnect.assert_awaited_once()
 
 
 @pytest.mark.parametrize("error", [BleakError("x"), TimeoutError(), UploadError("rejected")])
