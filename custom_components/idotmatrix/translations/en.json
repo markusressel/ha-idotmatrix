@@ -49,7 +49,7 @@
         "name": "Clock 24 hour format"
       },
       "night_mode": {
-        "name": "Night mode"
+        "name": "Night mode enabled"
       }
     },
     "button": {

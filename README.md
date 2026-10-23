@@ -44,7 +44,7 @@ The display does not report its state, so the state of the entities is assumed (
 | Switch *Clock shows date* | Off shows the time only, on lets the clock alternate between time and date. |
 | Switch *Clock 24 hour format* | 24 or 12 hours. |
 | Button *Show clock* | Shows the clock with the current settings, in one command. |
-| Switch *Night mode*, Time *Night mode start* / *end*, Number *Night mode brightness* | Dims the display between the two times. Changing any of them sends all four settings to the display. |
+| Switch *Night mode enabled*, Time *Night mode start* / *end*, Number *Night mode brightness* | Dims the display between the two times. Changing any of them sends all four settings to the display. |
 | Select *Music sync scene* | Lets the display react to sound with its own microphone (scenes 1-5). Show something else to leave it. Unknown while something else is shown. |
 | Switch *Flip display* | Rotates the picture by 180 degrees. |
 | Text *Message* | Shows the text as scrolling text. Use the `show_text` action for colors and modes. |
