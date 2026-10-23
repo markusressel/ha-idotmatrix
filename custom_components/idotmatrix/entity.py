@@ -16,7 +16,9 @@ class IDotMatrixEntity(RestoreEntity, Entity):
 
     _attr_has_entity_name = True
     _attr_should_poll = False
-    _attr_assumed_state = True
+    # The state is assumed, but with assumed_state Home Assistant shows two buttons with lightning icons instead of
+    # one toggle for lights and switches, which looks wrong for a display that follows its commands reliably.
+    _attr_assumed_state = False
 
     def __init__(self, device: IDotMatrixDevice, key: str) -> None:
         self._device = device

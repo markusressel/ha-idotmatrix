@@ -61,7 +61,6 @@ class IDotMatrixButton(IDotMatrixEntity, ButtonEntity):
     """A button that sends one command."""
 
     entity_description: IDotMatrixButtonDescription
-    _attr_assumed_state = False
 
     def __init__(self, device: IDotMatrixDevice, description: IDotMatrixButtonDescription) -> None:
         super().__init__(device, description.key)
