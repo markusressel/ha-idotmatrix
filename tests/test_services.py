@@ -9,7 +9,6 @@ from idotmatrix.modules.clock import ClockStyle
 from idotmatrix.modules.effect import EffectStyle
 from idotmatrix.modules.text import TextColorMode, TextMode
 from idotmatrix.util.image_utils import ResizeMode
-from PIL import UnidentifiedImageError
 import pytest
 import voluptuous as vol
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -148,7 +147,7 @@ async def test_show_gif_from_an_url(hass: HomeAssistant, setup: MockConfigEntry,
     client.gif.upload_gif_file.side_effect = upload
     response = MagicMock()
     response.raise_for_status = MagicMock()
-    response.content.read = AsyncMock(return_value=b"GIF89a")
+    response.content.iter_chunked = _chunks(b"GIF89a")
     response.content_type = "image/gif"
     session = MagicMock()
     session.get.return_value.__aenter__ = AsyncMock(return_value=response)
@@ -180,10 +179,23 @@ async def test_invalid_values_from_the_library_are_reported(
         await _call(hass, "show_text", text="x")
 
 
+def _chunks(content: bytes):
+    """A body that arrives in pieces of 3 bytes."""
+
+    def iter_chunked(_size: int):
+        async def pieces():
+            for start in range(0, len(content), 3):
+                yield content[start : start + 3]
+
+        return pieces()
+
+    return iter_chunked
+
+
 def _session(content: bytes = b"png", content_type: str = "image/png") -> MagicMock:
     response = MagicMock()
     response.raise_for_status = MagicMock()
-    response.content.read = AsyncMock(return_value=content)
+    response.content.iter_chunked = _chunks(content)
     response.content_type = content_type
     session = MagicMock()
     session.get.return_value.__aenter__ = AsyncMock(return_value=response)
@@ -380,11 +392,11 @@ async def test_download_that_is_not_a_picture(hass: HomeAssistant, setup: MockCo
 
 
 async def test_broken_picture_is_reported(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
-    client.image.show_image_file.side_effect = UnidentifiedImageError("cannot identify image file")
+    client.image.show_image_file.side_effect = OSError("image file is truncated")
     session = _session()
 
     with patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session):
-        with pytest.raises(HomeAssistantError, match="cannot identify"):
+        with pytest.raises(HomeAssistantError, match="truncated"):
             await _call(hass, "show_image", url="https://example.com/a.png")
 
 async def test_image_entity_url_is_signed(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
@@ -439,3 +451,20 @@ async def test_stream_of_a_media_source_becomes_the_current_picture(
         await _call(hass, "show_image", media_content_id="media-source://image/image.cover")
 
     session.get.assert_called_once_with(f"http://x{fetched}")
+
+
+async def test_picture_that_arrives_in_pieces_is_complete(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock
+) -> None:
+    seen = {}
+
+    async def show(path, **kwargs):
+        seen["content"] = Path(path).read_bytes()
+
+    client.image.show_image_file.side_effect = show
+    session = _session(b"0123456789")
+
+    with patch("custom_components.idotmatrix.media.async_get_clientsession", return_value=session):
+        await _call(hass, "show_image", url="https://example.com/a.png")
+
+    assert seen["content"] == b"0123456789"

@@ -81,7 +81,12 @@ async def async_fetch(hass: HomeAssistant, source: Source) -> tuple[str, bool]:
         async with asyncio.timeout(30), session.get(url) as response:
             response.raise_for_status()
             content_type = response.content_type
-            content = await response.content.read(MAX_DOWNLOAD_BYTES + 1)
+            # read() only returns what has arrived so far, so a picture would be cut off
+            content = bytearray()
+            async for chunk in response.content.iter_chunked(64 * 1024):
+                content += chunk
+                if len(content) > MAX_DOWNLOAD_BYTES:
+                    break
     except (TimeoutError, Exception) as ex:
         raise _error("download_failed", url=url, error=str(ex) or type(ex).__name__) from ex
     if len(content) > MAX_DOWNLOAD_BYTES:
