@@ -41,6 +41,15 @@
     "switch": {
       "flip": {
         "name": "Flip display"
+      },
+      "clock_show_date": {
+        "name": "Clock shows date"
+      },
+      "clock_hour24": {
+        "name": "Clock 24 hour format"
+      },
+      "night_mode": {
+        "name": "Night mode"
       }
     },
     "button": {
@@ -49,6 +58,9 @@
       },
       "freeze": {
         "name": "Freeze or unfreeze"
+      },
+      "show_clock": {
+        "name": "Show clock"
       }
     },
     "select": {
@@ -79,6 +91,24 @@
     "text": {
       "message": {
         "name": "Message"
+      }
+    },
+    "time": {
+      "night_mode_start": {
+        "name": "Night mode start"
+      },
+      "night_mode_end": {
+        "name": "Night mode end"
+      }
+    },
+    "number": {
+      "night_mode_brightness": {
+        "name": "Night mode brightness"
+      }
+    },
+    "light": {
+      "clock": {
+        "name": "Clock"
       }
     }
   },
@@ -202,7 +232,7 @@
     },
     "show_clock": {
       "name": "Show clock",
-      "description": "Shows the clock.",
+      "description": "Shows the clock. What is not given is taken from the settings of the clock entities.",
       "fields": {
         "style": {
           "name": "Style",
@@ -360,18 +390,6 @@
         "rainbow_4": "Rainbow 4"
       }
     },
-    "clock_style_service": {
-      "options": {
-        "rgbswipeoutline": "RGB swipe outline",
-        "christmastree": "Christmas tree",
-        "checkers": "Checkers",
-        "color": "Color",
-        "hourglass": "Hourglass",
-        "alarmclock": "Alarm clock",
-        "outlines": "Outlines",
-        "rgbcorners": "RGB corners"
-      }
-    },
     "effect_style": {
       "options": {
         "gradient_horizontal_rainbow": "Horizontal gradient",
@@ -397,6 +415,18 @@
         "pause": "Pause",
         "resume": "Resume",
         "reset": "Reset"
+      }
+    },
+    "clock_style": {
+      "options": {
+        "rgb_swipe_outline": "RGB swipe outline",
+        "christmas_tree": "Christmas tree",
+        "checkers": "Checkers",
+        "color": "Color",
+        "hourglass": "Hourglass",
+        "alarm_clock": "Alarm clock",
+        "outlines": "Outlines",
+        "rgb_corners": "RGB corners"
       }
     }
   }

@@ -3,6 +3,15 @@
     "switch": {
       "flip": {
         "default": "mdi:flip-vertical"
+      },
+      "clock_show_date": {
+        "default": "mdi:calendar-clock"
+      },
+      "clock_hour24": {
+        "default": "mdi:numeric-24-box-outline"
+      },
+      "night_mode": {
+        "default": "mdi:weather-night"
       }
     },
     "button": {
@@ -11,6 +20,9 @@
       },
       "freeze": {
         "default": "mdi:snowflake"
+      },
+      "show_clock": {
+        "default": "mdi:clock-outline"
       }
     },
     "select": {
@@ -24,6 +36,24 @@
     "text": {
       "message": {
         "default": "mdi:message-text"
+      }
+    },
+    "time": {
+      "night_mode_start": {
+        "default": "mdi:weather-night"
+      },
+      "night_mode_end": {
+        "default": "mdi:weather-sunset-up"
+      }
+    },
+    "number": {
+      "night_mode_brightness": {
+        "default": "mdi:brightness-6"
+      }
+    },
+    "light": {
+      "clock": {
+        "default": "mdi:clock-digital"
       }
     }
   },

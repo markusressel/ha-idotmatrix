@@ -111,17 +111,14 @@ show_clock:
       domain: light
   fields:
     style:
-      default: rgbswipeoutline
       selector:
         select:
-          translation_key: clock_style_service
-          options: [rgbswipeoutline, christmastree, checkers, color, hourglass, alarmclock, outlines, rgbcorners]
+          translation_key: clock_style
+          options: [rgb_swipe_outline, christmas_tree, checkers, color, hourglass, alarm_clock, outlines, rgb_corners]
     show_date:
-      default: true
       selector:
         boolean:
     hour24:
-      default: true
       selector:
         boolean:
     color:

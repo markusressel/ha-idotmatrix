@@ -37,7 +37,9 @@ async def test_clock_style(hass: HomeAssistant, setup: MockConfigEntry, client: 
         SELECT_DOMAIN, SERVICE_SELECT_OPTION, {ATTR_ENTITY_ID: CLOCK_STYLE, "option": "hourglass"}, blocking=True
     )
 
-    client.clock.show.assert_awaited_once_with(ClockStyle.Hourglass)
+    client.clock.show.assert_awaited_once_with(
+        ClockStyle.Hourglass, show_date=True, hour24=True, color=(255, 255, 255)
+    )
     assert hass.states.get(CLOCK_STYLE).state == "hourglass"
 
 

@@ -30,6 +30,11 @@ BUTTONS = (
         press_fn=lambda device: device.async_sync_time(),
     ),
     IDotMatrixButtonDescription(
+        key="show_clock",
+        translation_key="show_clock",
+        press_fn=lambda device: device.async_show_clock(),
+    ),
+    IDotMatrixButtonDescription(
         key="reset",
         device_class=ButtonDeviceClass.RESTART,
         entity_category=EntityCategory.CONFIG,

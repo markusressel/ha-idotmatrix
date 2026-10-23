@@ -1,5 +1,6 @@
 """Constants of the iDotMatrix integration."""
 
+from idotmatrix.modules.clock import ClockStyle
 from idotmatrix.screensize import ScreenSize
 
 DOMAIN = "idotmatrix"
@@ -30,6 +31,24 @@ SCREEN_SIZES = {
 
 # The device reports its screen type when connecting, see DeviceInfo of the library. This is the model name.
 MANUFACTURER = "iDotMatrix"
+
+# what the display shows, as far as Home Assistant knows
+MODE_LIGHT = "light"  # a color on the whole screen
+MODE_EFFECT = "effect"
+MODE_CLOCK = "clock"
+MODE_MUSIC = "music"
+MODE_CONTENT = "content"  # text, a picture, a GIF, a scoreboard, ...
+
+CLOCK_STYLES = {
+    "rgb_swipe_outline": ClockStyle.RGBSwipeOutline,
+    "christmas_tree": ClockStyle.ChristmasTree,
+    "checkers": ClockStyle.Checkers,
+    "color": ClockStyle.Color,
+    "hourglass": ClockStyle.Hourglass,
+    "alarm_clock": ClockStyle.AlarmClock,
+    "outlines": ClockStyle.Outlines,
+    "rgb_corners": ClockStyle.RGBCorners,
+}
 
 # the brightness range of the device in percent
 MIN_BRIGHTNESS_PERCENT = 5

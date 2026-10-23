@@ -19,7 +19,15 @@ from .device import IDotMatrixDevice
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.BUTTON, Platform.LIGHT, Platform.SELECT, Platform.SWITCH, Platform.TEXT]
+PLATFORMS: list[Platform] = [
+    Platform.BUTTON,
+    Platform.LIGHT,
+    Platform.NUMBER,
+    Platform.SELECT,
+    Platform.SWITCH,
+    Platform.TEXT,
+    Platform.TIME,
+]
 
 type IDotMatrixConfigEntry = ConfigEntry[IDotMatrixDevice]
 
