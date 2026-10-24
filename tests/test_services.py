@@ -179,6 +179,41 @@ async def test_stored_slideshow_with_a_text_on_top(
     assert client.materials.store.await_args.kwargs["overlay"] == TextOverlay("Album")
 
 
+async def test_uploads_wait_for_the_pause_after_the_last_one(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path
+) -> None:
+    image = tmp_path / "a.png"
+    image.write_bytes(b"png")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+    starts: list[float] = []
+
+    async def _record(*args, **kwargs) -> None:
+        starts.append(hass.loop.time())
+
+    client.image.show_image_file.side_effect = _record
+
+    with patch("custom_components.idotmatrix.device.UPLOAD_PAUSE", 0.2):
+        await asyncio.gather(*(_call(hass, "show_image", path=str(image)) for _ in range(3)))
+
+    assert len(starts) == 3
+    assert starts[1] - starts[0] >= 0.19
+    assert starts[2] - starts[1] >= 0.19
+
+
+async def test_other_commands_do_not_wait_for_the_pause(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path
+) -> None:
+    image = tmp_path / "a.png"
+    image.write_bytes(b"png")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    with patch("custom_components.idotmatrix.device.UPLOAD_PAUSE", 30):
+        await _call(hass, "show_image", path=str(image))
+        await asyncio.wait_for(_call(hass, "show_text", text="Hi"), timeout=2)
+
+    client.text.show_text.assert_awaited_once()
+
+
 async def test_show_image_needs_a_source(hass: HomeAssistant, setup: MockConfigEntry) -> None:
     with pytest.raises(vol.Invalid):
         await _call(hass, "show_image")

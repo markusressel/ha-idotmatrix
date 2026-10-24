@@ -25,7 +25,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_call_later
 from homeassistant.util import dt as dt_util
 
-from .const import CLOCK_STYLES, DOMAIN, HEARTBEAT_INTERVAL, MODE_CLOCK, MODE_CONTENT
+from .const import CLOCK_STYLES, DOMAIN, HEARTBEAT_INTERVAL, MODE_CLOCK, MODE_CONTENT, UPLOAD_PAUSE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -80,6 +80,10 @@ class IDotMatrixDevice:
         self.firmware_version: str | None = None
         # the task that shows the pictures of a slideshow, as long as there is one
         self.slideshow: asyncio.Task | None = None
+
+        # uploads wait for each other, and for the pause after the last one (loop time, None before the first)
+        self._upload_lock = asyncio.Lock()
+        self._last_upload_end: float | None = None
 
         self._cancel_idle: CALLBACK_TYPE | None = None
         self._listeners: list[CALLBACK_TYPE] = []
@@ -216,6 +220,27 @@ class IDotMatrixDevice:
             ) from ex
         finally:
             self._restart_idle_timer()
+
+    async def upload(self, action: Awaitable[Any]) -> Any:
+        """
+        Runs a command that uploads a picture like `call()`, but not before `UPLOAD_PAUSE` has passed since the last
+        upload ended, so that uploads that follow each other quickly (f.e. the cover art of a media player) do not
+        overload the Bluetooth proxy.
+        """
+        async with self._upload_lock:
+            if self._last_upload_end is not None:
+                remaining = self._last_upload_end + UPLOAD_PAUSE - self.hass.loop.time()
+                if remaining > 0:
+                    try:
+                        await asyncio.sleep(remaining)
+                    except asyncio.CancelledError:
+                        if asyncio.iscoroutine(action):
+                            action.close()
+                        raise
+            try:
+                return await self.call(action)
+            finally:
+                self._last_upload_end = self.hass.loop.time()
 
     async def async_sync_time(self) -> DeviceInfo | None:
         """Sets the clock of the device to the time of Home Assistant, and returns what the device tells about itself."""
