@@ -114,7 +114,21 @@ async def test_show_image_from_a_file(hass: HomeAssistant, setup: MockConfigEntr
     await _call(hass, "show_image", path=str(image), resize_mode="fill", palletize=True)
 
     client.image.show_image_file.assert_awaited_once_with(
-        str(image), resize_mode=ResizeMode.FILL, palletize=True, background_color=(0, 0, 0), png=False
+        str(image), resize_mode=ResizeMode.FILL, palletize=True, background_color=(0, 0, 0)
+    )
+
+
+async def test_show_image_passes_png_only_when_set(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path
+) -> None:
+    image = tmp_path / "a.png"
+    image.write_bytes(b"png")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    await _call(hass, "show_image", path=str(image), png=False)
+
+    client.image.show_image_file.assert_awaited_once_with(
+        str(image), resize_mode=ResizeMode.FIT, palletize=False, background_color=(0, 0, 0), png=False
     )
 
 

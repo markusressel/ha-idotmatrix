@@ -30,7 +30,6 @@ show_image:
       selector:
         color_rgb:
     png:
-      default: false
       advanced: true
       selector:
         boolean:

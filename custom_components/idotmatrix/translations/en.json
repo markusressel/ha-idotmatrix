@@ -169,7 +169,7 @@
         },
         "png": {
           "name": "Send as PNG",
-          "description": "Experimental: sends a smaller PNG file instead of raw pixels, which is a little faster."
+          "description": "Send the picture as a PNG file (smaller and avoids a stray pixel in the corner) or as raw pixels. If this is not set, the default of the library is used, which is PNG."
         }
       }
     },

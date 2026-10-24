@@ -113,6 +113,8 @@ async def _async_show_picture(
             ),
         )
     else:
+        # png is only passed when it was set, otherwise the default of the library applies
+        png = {"png": options["png"]} if "png" in options else {}
         await _async_with_file(
             entity,
             source,
@@ -121,7 +123,7 @@ async def _async_show_picture(
                 resize_mode=RESIZE_MODES[options["resize_mode"]],
                 palletize=options.get("palletize", False),
                 background_color=options["background_color"],
-                png=options.get("png", False),
+                **png,
             ),
         )
 
@@ -312,7 +314,7 @@ def async_setup_services() -> None:
                 vol.Optional("resize_mode", default="fit"): vol.In(RESIZE_MODES),
                 vol.Optional("palletize", default=False): cv.boolean,
                 vol.Optional("background_color", default=(0, 0, 0)): RGB,
-                vol.Optional("png", default=False): cv.boolean,
+                vol.Optional("png"): cv.boolean,
             }
         ),
         _require_source,
