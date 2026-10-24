@@ -95,6 +95,20 @@ data:
   resize_mode: fill
 ```
 
+`show_image`, `show_gif` and `start_slideshow` can draw a text on top of the picture (`overlay_text`, with
+`overlay_position`, `overlay_color`, `overlay_font_size` and `overlay_background`), f.e. a title. The text does not
+change while the picture is shown, and one that is too long for the screen is cut.
+
+```yaml
+action: idotmatrix.show_image
+target:
+  entity_id: light.idm_123456
+data:
+  url: "/api/media_player_proxy/media_player.living_room"
+  overlay_text: "Now playing"
+  overlay_position: bottom-center
+```
+
 ```yaml
 action: idotmatrix.start_slideshow
 target:

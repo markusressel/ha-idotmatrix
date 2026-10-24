@@ -30,7 +30,28 @@ show_image:
       selector:
         color_rgb:
     png:
-      default: false
+      advanced: true
+      selector:
+        boolean:
+    overlay_text:
+      selector:
+        text:
+    overlay_position:
+      selector:
+        select:
+          translation_key: overlay_position
+          options: [top-left, top-center, top-right, center, bottom-left, bottom-center, bottom-right]
+    overlay_color:
+      selector:
+        color_rgb:
+    overlay_font_size:
+      advanced: true
+      selector:
+        number:
+          min: 4
+          max: 32
+          unit_of_measurement: px
+    overlay_background:
       advanced: true
       selector:
         boolean:
@@ -72,6 +93,28 @@ show_gif:
           min: 10
           max: 5000
           unit_of_measurement: ms
+    overlay_text:
+      selector:
+        text:
+    overlay_position:
+      selector:
+        select:
+          translation_key: overlay_position
+          options: [top-left, top-center, top-right, center, bottom-left, bottom-center, bottom-right]
+    overlay_color:
+      selector:
+        color_rgb:
+    overlay_font_size:
+      advanced: true
+      selector:
+        number:
+          min: 4
+          max: 32
+          unit_of_measurement: px
+    overlay_background:
+      advanced: true
+      selector:
+        boolean:
 show_text:
   target:
     entity:
@@ -308,6 +351,28 @@ start_slideshow:
       default: [0, 0, 0]
       selector:
         color_rgb:
+    overlay_text:
+      selector:
+        text:
+    overlay_position:
+      selector:
+        select:
+          translation_key: overlay_position
+          options: [top-left, top-center, top-right, center, bottom-left, bottom-center, bottom-right]
+    overlay_color:
+      selector:
+        color_rgb:
+    overlay_font_size:
+      advanced: true
+      selector:
+        number:
+          min: 4
+          max: 32
+          unit_of_measurement: px
+    overlay_background:
+      advanced: true
+      selector:
+        boolean:
 stop_slideshow:
   target:
     entity:
