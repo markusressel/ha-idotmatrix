@@ -13,6 +13,7 @@ from idotmatrix.modules.effect import EffectStyle
 from idotmatrix.modules.text import TextColorMode, TextMode
 from idotmatrix.util.device_material import SLOTS
 from idotmatrix.util.image_utils import ResizeMode
+from idotmatrix.util.overlay import POSITIONS, TextOverlay
 import voluptuous as vol
 
 from homeassistant.core import ServiceCall
@@ -51,6 +52,28 @@ def _media_content_id(value: Any) -> str:
 def _without_empty_values(data: dict[str, Any]) -> dict[str, Any]:
     """The UI sends fields that were left empty as None or an empty string."""
     return {key: value for key, value in data.items() if value is not None and value != ""}
+
+
+OVERLAY_SCHEMA = {
+    vol.Optional("overlay_text"): cv.string,
+    vol.Optional("overlay_position"): vol.In(POSITIONS),
+    vol.Optional("overlay_color"): RGB,
+    vol.Optional("overlay_font_size"): vol.All(vol.Coerce(int), vol.Range(min=4, max=32)),
+    vol.Optional("overlay_background"): cv.boolean,
+}
+
+
+def _overlay_of(options: dict[str, Any]) -> TextOverlay | None:
+    """The text that is drawn on top of the picture, if there is one. What is not set is left to the library."""
+    if "overlay_text" not in options:
+        return None
+    kwargs: dict[str, Any] = {}
+    for key in ("position", "color", "font_size"):
+        if f"overlay_{key}" in options:
+            kwargs[key] = options[f"overlay_{key}"]
+    if options.get("overlay_background") is False:
+        kwargs["background"] = None
+    return TextOverlay(options["overlay_text"], **kwargs)
 
 
 SOURCE_SCHEMA = {
@@ -110,6 +133,7 @@ async def _async_show_picture(
                 palletize=options.get("palletize", True),
                 background_color=options["background_color"],
                 duration_per_frame_in_ms=options.get("duration_per_frame"),
+                overlay=_overlay_of(options),
             ),
         )
     else:
@@ -123,6 +147,7 @@ async def _async_show_picture(
                 resize_mode=RESIZE_MODES[options["resize_mode"]],
                 palletize=options.get("palletize", False),
                 background_color=options["background_color"],
+                overlay=_overlay_of(options),
                 **png,
             ),
         )
@@ -205,6 +230,7 @@ async def _async_store_pictures(entity: IDotMatrixLight, pictures: list[Source],
                 resize_mode=RESIZE_MODES[data["resize_mode"]],
                 palletize=data.get("palletize"),
                 background_color=data["background_color"],
+                overlay=_overlay_of(data),
             )
         )
     finally:
@@ -315,6 +341,7 @@ def async_setup_services() -> None:
                 vol.Optional("palletize", default=False): cv.boolean,
                 vol.Optional("background_color", default=(0, 0, 0)): RGB,
                 vol.Optional("png"): cv.boolean,
+                **OVERLAY_SCHEMA,
             }
         ),
         _require_source,
@@ -328,6 +355,7 @@ def async_setup_services() -> None:
                 vol.Optional("palletize", default=True): cv.boolean,
                 vol.Optional("background_color", default=(0, 0, 0)): RGB,
                 vol.Optional("duration_per_frame"): vol.All(vol.Coerce(int), vol.Range(min=10, max=5000)),
+                **OVERLAY_SCHEMA,
             }
         ),
         _require_source,
@@ -351,6 +379,7 @@ def async_setup_services() -> None:
                 vol.Optional("shuffle", default=False): cv.boolean,
                 vol.Optional("resize_mode", default="fit"): vol.In(RESIZE_MODES),
                 vol.Optional("background_color", default=(0, 0, 0)): RGB,
+                **OVERLAY_SCHEMA,
             }
         ),
         _require_folder,

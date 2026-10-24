@@ -9,6 +9,7 @@ from idotmatrix.modules.clock import ClockStyle
 from idotmatrix.modules.effect import EffectStyle
 from idotmatrix.modules.text import TextColorMode, TextMode
 from idotmatrix.util.image_utils import ResizeMode
+from idotmatrix.util.overlay import TextOverlay
 import pytest
 import voluptuous as vol
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -114,7 +115,7 @@ async def test_show_image_from_a_file(hass: HomeAssistant, setup: MockConfigEntr
     await _call(hass, "show_image", path=str(image), resize_mode="fill", palletize=True)
 
     client.image.show_image_file.assert_awaited_once_with(
-        str(image), resize_mode=ResizeMode.FILL, palletize=True, background_color=(0, 0, 0)
+        str(image), resize_mode=ResizeMode.FILL, palletize=True, background_color=(0, 0, 0), overlay=None
     )
 
 
@@ -128,8 +129,54 @@ async def test_show_image_passes_png_only_when_set(
     await _call(hass, "show_image", path=str(image), png=False)
 
     client.image.show_image_file.assert_awaited_once_with(
-        str(image), resize_mode=ResizeMode.FIT, palletize=False, background_color=(0, 0, 0), png=False
+        str(image), resize_mode=ResizeMode.FIT, palletize=False, background_color=(0, 0, 0), overlay=None, png=False
     )
+
+
+async def test_show_image_with_a_text_on_top(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path
+) -> None:
+    image = tmp_path / "a.png"
+    image.write_bytes(b"png")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    await _call(
+        hass, "show_image", path=str(image), overlay_text="64c", overlay_position="top-right",
+        overlay_color=(255, 0, 0), overlay_font_size=10, overlay_background=False,
+    )
+
+    overlay = client.image.show_image_file.await_args.kwargs["overlay"]
+    assert overlay == TextOverlay("64c", position="top-right", color=(255, 0, 0), font_size=10, background=None)
+
+
+async def test_text_on_top_keeps_the_defaults_of_the_library(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path
+) -> None:
+    image = tmp_path / "a.png"
+    image.write_bytes(b"png")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    await _call(hass, "show_image", path=str(image), overlay_text="Hi", overlay_position="center")
+
+    assert client.image.show_image_file.await_args.kwargs["overlay"] == TextOverlay("Hi", position="center")
+
+
+async def test_show_gif_with_a_text_on_top(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    with patch("custom_components.idotmatrix.services.async_fetch", AsyncMock(return_value=("/tmp/a.gif", False))):
+        await _call(hass, "show_gif", url="https://example.com/a.gif", overlay_text="Hi")
+
+    assert client.gif.upload_gif_file.await_args.kwargs["overlay"] == TextOverlay("Hi")
+
+
+async def test_stored_slideshow_with_a_text_on_top(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock, tmp_path: Path
+) -> None:
+    (tmp_path / "a.png").write_bytes(b"x")
+    hass.config.allowlist_external_dirs = {str(tmp_path)}
+
+    await _call(hass, "start_slideshow", folder=str(tmp_path), store=True, overlay_text="Album")
+
+    assert client.materials.store.await_args.kwargs["overlay"] == TextOverlay("Album")
 
 
 async def test_show_image_needs_a_source(hass: HomeAssistant, setup: MockConfigEntry) -> None:

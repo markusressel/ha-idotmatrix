@@ -170,6 +170,26 @@
         "png": {
           "name": "Send as PNG",
           "description": "Send the picture as a PNG file (smaller and avoids a stray pixel in the corner) or as raw pixels. If this is not set, the default of the library is used, which is PNG."
+        },
+        "overlay_text": {
+          "name": "Text on top",
+          "description": "A text drawn on top of the picture, f.e. its title. It does not change while the picture is shown, and a text that is too long for the screen is cut."
+        },
+        "overlay_position": {
+          "name": "Text position",
+          "description": "Where the text goes. Bottom left if not set."
+        },
+        "overlay_color": {
+          "name": "Text color",
+          "description": "Color of the text. White if not set."
+        },
+        "overlay_font_size": {
+          "name": "Text size",
+          "description": "Size of the font in pixels. 8 if not set, which fits about 10 characters on a 64 pixel wide screen."
+        },
+        "overlay_background": {
+          "name": "Text background",
+          "description": "Darkens the picture behind the text to keep it readable. On if not set."
         }
       }
     },
@@ -204,6 +224,26 @@
         "duration_per_frame": {
           "name": "Frame duration",
           "description": "Duration of each frame in milliseconds. Defaults to the one of the GIF."
+        },
+        "overlay_text": {
+          "name": "Text on top",
+          "description": "A text drawn on top of the picture, f.e. its title. It does not change while the picture is shown, and a text that is too long for the screen is cut."
+        },
+        "overlay_position": {
+          "name": "Text position",
+          "description": "Where the text goes. Bottom left if not set."
+        },
+        "overlay_color": {
+          "name": "Text color",
+          "description": "Color of the text. White if not set."
+        },
+        "overlay_font_size": {
+          "name": "Text size",
+          "description": "Size of the font in pixels. 8 if not set, which fits about 10 characters on a 64 pixel wide screen."
+        },
+        "overlay_background": {
+          "name": "Text background",
+          "description": "Darkens the picture behind the text to keep it readable. On if not set."
         }
       }
     },
@@ -408,6 +448,26 @@
         "background_color": {
           "name": "Background color",
           "description": "Color of the bars if the picture does not have the shape of the screen."
+        },
+        "overlay_text": {
+          "name": "Text on top",
+          "description": "A text drawn on top of the picture, f.e. its title. It does not change while the picture is shown, and a text that is too long for the screen is cut."
+        },
+        "overlay_position": {
+          "name": "Text position",
+          "description": "Where the text goes. Bottom left if not set."
+        },
+        "overlay_color": {
+          "name": "Text color",
+          "description": "Color of the text. White if not set."
+        },
+        "overlay_font_size": {
+          "name": "Text size",
+          "description": "Size of the font in pixels. 8 if not set, which fits about 10 characters on a 64 pixel wide screen."
+        },
+        "overlay_background": {
+          "name": "Text background",
+          "description": "Darkens the picture behind the text to keep it readable. On if not set."
         }
       }
     },
@@ -484,6 +544,17 @@
         "alarm_clock": "Alarm clock",
         "outlines": "Outlines",
         "rgb_corners": "RGB corners"
+      }
+    },
+    "overlay_position": {
+      "options": {
+        "top-left": "Top left",
+        "top-center": "Top center",
+        "top-right": "Top right",
+        "center": "Center",
+        "bottom-left": "Bottom left",
+        "bottom-center": "Bottom center",
+        "bottom-right": "Bottom right"
       }
     }
   }
