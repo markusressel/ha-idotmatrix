@@ -24,6 +24,13 @@ def auto_enable(enable_custom_integrations: None, enable_bluetooth: None) -> Non
     """Load the integration from custom_components, and a Bluetooth stack without adapters."""
 
 
+@pytest.fixture(autouse=True)
+def no_upload_pause() -> Generator[None]:
+    """Uploads do not wait for each other, except in the tests of the pause."""
+    with patch("custom_components.idotmatrix.device.UPLOAD_PAUSE", 0):
+        yield
+
+
 @pytest.fixture
 def ble_device() -> BLEDevice:
     return BLEDevice(ADDRESS, NAME, {})

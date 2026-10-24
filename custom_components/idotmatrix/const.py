@@ -23,6 +23,10 @@ MAX_IDLE_TIMEOUT = 3600
 # without Bluetooth noticing (f.e. the display was unplugged) is found.
 HEARTBEAT_INTERVAL = 60
 
+# The pause between two uploads of pictures. The display takes them back to back, but a Bluetooth proxy that is still
+# busy with the previous one lets the display miss the acknowledgement of a chunk (the upload fails after 5 seconds).
+UPLOAD_PAUSE = 1.0
+
 SCREEN_SIZES = {
     "16x16": ScreenSize.SIZE_16x16,
     "32x32": ScreenSize.SIZE_32x32,

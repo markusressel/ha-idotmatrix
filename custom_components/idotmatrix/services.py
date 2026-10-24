@@ -110,7 +110,7 @@ async def _async_with_file(
 ) -> None:
     path, temporary = await async_fetch(entity.hass, data)
     try:
-        await entity._device.call(action(path))
+        await entity._device.upload(action(path))
     finally:
         if temporary:
             await entity.hass.async_add_executor_job(os.unlink, path)
@@ -222,7 +222,7 @@ async def _async_store_pictures(entity: IDotMatrixLight, pictures: list[Source],
     try:
         for picture in pictures:
             files.append(await async_fetch(entity.hass, picture))
-        await entity._device.call(
+        await entity._device.upload(
             entity._device.client.materials.store(
                 [path for path, _ in files],
                 slots=slots,
