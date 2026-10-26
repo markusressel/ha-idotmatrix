@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import time
+from datetime import time, timedelta
 import asyncio
 import logging
 from typing import Any
@@ -78,6 +78,9 @@ class IDotMatrixDevice:
         self.idle_timeout = idle_timeout
         self.state = DeviceState()
         self.firmware_version: str | None = None
+        # the UTC offset of the time that was sent to the display last, to notice a switch of summer and winter time
+        self._synced_utc_offset: timedelta | None = None
+        self._connected = False
         # the task that shows the pictures of a slideshow, as long as there is one
         self.slideshow: asyncio.Task | None = None
 
@@ -166,11 +169,13 @@ class IDotMatrixDevice:
 
     async def _on_connected(self) -> None:
         _LOGGER.debug("Connected to %s", self.address)
+        self._connected = True
         for listener in self._connected_listeners:
             await listener()
 
     async def _on_disconnected(self) -> None:
         _LOGGER.debug("Disconnected from %s", self.address)
+        self._connected = False
 
     def add_connected_listener(self, listener: Callable[[], Awaitable[Any]]) -> CALLBACK_TYPE:
         """Calls the listener every time a connection was made."""
@@ -244,10 +249,21 @@ class IDotMatrixDevice:
 
     async def async_sync_time(self) -> DeviceInfo | None:
         """Sets the clock of the device to the time of Home Assistant, and returns what the device tells about itself."""
-        info = await self.call(self.client.common.get_device_info(dt_util.now().replace(tzinfo=None)))
+        now = dt_util.now()
+        info = await self.call(self.client.common.get_device_info(now.replace(tzinfo=None)))
+        self._synced_utc_offset = now.utcoffset()
         if info is not None:
             self.firmware_version = info.firmware_version
         return info
+
+    async def async_sync_time_if_utc_offset_changed(self) -> None:
+        """
+        Sets the clock again if the local time moved against UTC since it was set (switch between summer and winter time,
+        or a new time zone). A display that is not connected gets the time with its next connection anyway.
+        """
+        if self._connected and dt_util.now().utcoffset() != self._synced_utc_offset:
+            _LOGGER.debug("The UTC offset changed, setting the time of %s", self.address)
+            await self.async_sync_time()
 
     # -- state --------------------------------------------------------------------------------------------------
 

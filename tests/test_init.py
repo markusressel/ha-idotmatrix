@@ -1,15 +1,17 @@
 """Tests of setting up the integration."""
 
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 from bleak.exc import BleakError
 from idotmatrix import ScreenSize
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from custom_components.idotmatrix.const import DOMAIN
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
+from homeassistant.util import dt as dt_util
 
 from .conftest import ADDRESS, LIGHT
 
@@ -73,3 +75,24 @@ async def test_a_failing_time_sync_does_not_break_the_connection(
     listener = client.add_connection_listener.call_args.args[0]
 
     await listener.on_connected()
+
+
+async def test_time_is_set_again_when_the_utc_offset_changes(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock
+) -> None:
+    listener = client.add_connection_listener.call_args.args[0]
+    await listener.on_connected()
+    await hass.async_block_till_done()
+    client.common.get_device_info.reset_mock()
+
+    await hass.config.async_set_time_zone("Europe/Berlin")
+    now = dt_util.now()
+    async_fire_time_changed(hass, now + timedelta(minutes=1))
+    await hass.async_block_till_done()
+    client.common.get_device_info.assert_awaited_once()
+
+    # unchanged offset, no new sync
+    client.common.get_device_info.reset_mock()
+    async_fire_time_changed(hass, now + timedelta(minutes=2))
+    await hass.async_block_till_done()
+    client.common.get_device_info.assert_not_awaited()
