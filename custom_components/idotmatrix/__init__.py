@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 import logging
 
 from bleak.exc import BleakError
@@ -13,6 +14,7 @@ from homeassistant.const import CONF_ADDRESS, CONF_NAME, EVENT_HOMEASSISTANT_STO
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.event import async_track_time_interval
 
 from .const import CONF_IDLE_TIMEOUT, CONF_SCREEN_SIZE, DEFAULT_IDLE_TIMEOUT, DOMAIN, PENDING_DEVICES, SCREEN_SIZES
 from .device import IDotMatrixDevice
@@ -28,6 +30,8 @@ PLATFORMS: list[Platform] = [
     Platform.TEXT,
     Platform.TIME,
 ]
+
+UTC_OFFSET_CHECK_INTERVAL = timedelta(minutes=1)
 
 type IDotMatrixConfigEntry = ConfigEntry[IDotMatrixDevice]
 
@@ -88,6 +92,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: IDotMatrixConfigEntry) -
                 registry.async_update_device(registered.id, sw_version=info.firmware_version)
 
     entry.async_on_unload(device.add_connected_listener(_on_connected))
+
+    async def _check_utc_offset(_now: datetime) -> None:
+        """The display has no time zone, so it has to be told when summer or winter time starts."""
+        try:
+            await device.async_sync_time_if_utc_offset_changed()
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("Could not set the time of %s", address, exc_info=True)
+
+    entry.async_on_unload(async_track_time_interval(hass, _check_utc_offset, UTC_OFFSET_CHECK_INTERVAL))
 
     async def _async_stop(_event: Event) -> None:
         """Close the connection cleanly, so the display is free for the next connection."""

@@ -48,7 +48,7 @@ The display does not report its state, so the state of the entities is assumed (
 | Select *Music sync scene* | Lets the display react to sound with its own microphone (scenes 1-5). Show something else to leave it. Unknown while something else is shown. |
 | Switch *Flip display* | Rotates the picture by 180 degrees. |
 | Text *Message* | Shows the text as scrolling text. Use the `show_text` action for colors and modes. |
-| Button *Sync time* | Sets the clock of the display to the time of Home Assistant. This also happens on every connection. |
+| Button *Sync time* | Sets the clock of the display to the time of Home Assistant. This also happens on every connection, and again when the time zone offset of Home Assistant changes (the switch between summer and winter time), which is checked every minute. |
 | Button *Restart* | Resets the display. |
 | Button *Freeze or unfreeze* | Freezes the picture (it toggles). |
 
