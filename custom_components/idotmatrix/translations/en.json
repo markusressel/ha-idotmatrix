@@ -136,6 +136,9 @@
     },
     "download_too_large": {
       "message": "The download is larger than 20 MB"
+    },
+    "invalid_image_data": {
+      "message": "The data is no image file: {error}"
     }
   },
   "services": {
@@ -154,6 +157,10 @@
         "media_content_id": {
           "name": "Media",
           "description": "A picture from a media source of Home Assistant."
+        },
+        "data": {
+          "name": "Image data",
+          "description": "The content of an image file (PNG, JPEG, GIF, ...) as base64, f.e. a picture that an automation drew. It is converted for the display like a file."
         },
         "resize_mode": {
           "name": "Resize mode",
@@ -208,6 +215,10 @@
         "media_content_id": {
           "name": "Media",
           "description": "A picture from a media source of Home Assistant."
+        },
+        "data": {
+          "name": "Image data",
+          "description": "The content of an image file (PNG, JPEG, GIF, ...) as base64, f.e. a picture that an automation drew. It is converted for the display like a file."
         },
         "resize_mode": {
           "name": "Resize mode",

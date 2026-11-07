@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import asyncio
 from datetime import timedelta
+import io
 import logging
 import os
 import tempfile
 from typing import Any
+
+from PIL import Image, UnidentifiedImageError
 
 from homeassistant.components import media_source
 from homeassistant.components.http.auth import async_sign_path
@@ -22,6 +25,7 @@ from .const import DOMAIN
 ATTR_PATH = "path"
 ATTR_URL = "url"
 ATTR_MEDIA_CONTENT_ID = "media_content_id"
+ATTR_DATA = "data"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,11 +35,13 @@ MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
 MAX_FOLDER_DEPTH = 8
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif"}
 
-# a source of a picture, as a dict with one of the keys above
-Source = dict[str, str]
+# a source of a picture, as a dict with one of the keys above: a string, or the bytes of the file for ATTR_DATA
+Source = dict[str, str | bytes]
 
 
 def is_gif(source: Source) -> bool:
+    if ATTR_DATA in source:
+        return source[ATTR_DATA].startswith((b"GIF87a", b"GIF89a"))
     return any(value.lower().split("?")[0].endswith(".gif") for value in source.values())
 
 
@@ -48,6 +54,9 @@ async def async_fetch(hass: HomeAssistant, source: Source) -> tuple[str, bool]:
     Returns the path of the file to show, and whether it is a temporary file that has to be deleted.
     Local files must be in a folder that is allowed by `allowlist_external_dirs`.
     """
+    if ATTR_DATA in source:
+        return await hass.async_add_executor_job(_write_image_data, source[ATTR_DATA]), True
+
     if ATTR_PATH in source:
         path = source[ATTR_PATH]
         if not hass.config.is_allowed_path(path):
@@ -97,12 +106,26 @@ async def async_fetch(hass: HomeAssistant, source: Source) -> tuple[str, bool]:
         _LOGGER.warning("%s answered with %s, starting with %r", url, content_type, content[:200])
         raise _error("not_an_image", url=url, content_type=content_type)
 
-    def _write() -> str:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".img") as file:
-            file.write(content)
-            return file.name
+    return await hass.async_add_executor_job(_write_temporary_file, bytes(content)), True
 
-    return await hass.async_add_executor_job(_write), True
+
+def _write_image_data(data: bytes) -> str:
+    """
+    Writes the content of an image file that was given in an action, after checking that it is one: anything else
+    would only fail during the upload, possibly after the display got part of it.
+    """
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            image.verify()
+    except (UnidentifiedImageError, OSError, SyntaxError, ValueError) as ex:
+        raise _error("invalid_image_data", error=str(ex) or type(ex).__name__) from ex
+    return _write_temporary_file(data)
+
+
+def _write_temporary_file(content: bytes) -> str:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".img") as file:
+        file.write(content)
+        return file.name
 
 
 async def async_list_pictures(
