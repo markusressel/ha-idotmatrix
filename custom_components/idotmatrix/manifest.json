@@ -16,5 +16,5 @@
   "issue_tracker": "https://github.com/markusressel/ha-idotmatrix/issues",
   "loggers": ["idotmatrix"],
   "requirements": ["idotmatrix-api-client==1.0.0"],
-  "version": "0.1.0"
+  "version": "1.0.0"
 }
