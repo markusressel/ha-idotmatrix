@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import logging
 import random
 from collections.abc import Awaitable, Callable
@@ -21,9 +23,11 @@ from homeassistant.helpers import config_validation as cv, entity_platform
 
 from .const import CLOCK_STYLES, MODE_EFFECT, MODE_MUSIC
 from .media import (
+    ATTR_DATA,
     ATTR_MEDIA_CONTENT_ID,
     ATTR_PATH,
     ATTR_URL,
+    MAX_DOWNLOAD_BYTES,
     Source,
     async_fetch,
     async_list_pictures,
@@ -76,16 +80,35 @@ def _overlay_of(options: dict[str, Any]) -> TextOverlay | None:
     return TextOverlay(options["overlay_text"], **kwargs)
 
 
+def _image_data(value: Any) -> bytes:
+    """
+    The content of an image file (PNG, JPEG, GIF, ...) as base64. It is converted for the display like a file or a
+    download, so it is no raw data for the device.
+    """
+    try:
+        data = base64.b64decode(cv.string(value), validate=True)
+    except (binascii.Error, ValueError) as ex:
+        raise vol.Invalid("data must be an image file encoded as base64") from ex
+    if not data:
+        raise vol.Invalid("data must not be empty")
+    if len(data) > MAX_DOWNLOAD_BYTES:
+        raise vol.Invalid(f"data must not be larger than {MAX_DOWNLOAD_BYTES // (1024 * 1024)} MB")
+    return data
+
+
+SOURCE_KEYS = (ATTR_PATH, ATTR_URL, ATTR_MEDIA_CONTENT_ID, ATTR_DATA)
+
 SOURCE_SCHEMA = {
     vol.Exclusive(ATTR_PATH, "source"): cv.string,
     vol.Exclusive(ATTR_URL, "source"): cv.string,
     vol.Exclusive(ATTR_MEDIA_CONTENT_ID, "source"): _media_content_id,
+    vol.Exclusive(ATTR_DATA, "source"): _image_data,
 }
 
 
 def _require_source(data: dict[str, Any]) -> dict[str, Any]:
-    if not any(key in data for key in (ATTR_PATH, ATTR_URL, ATTR_MEDIA_CONTENT_ID)):
-        raise vol.Invalid("Either path, url or media_content_id is required")
+    if not any(key in data for key in SOURCE_KEYS):
+        raise vol.Invalid("Either path, url, media_content_id or data is required")
     return data
 
 
@@ -154,7 +177,7 @@ async def _async_show_picture(
 
 
 def _source_of(data: dict[str, Any]) -> Source:
-    return {key: data[key] for key in (ATTR_PATH, ATTR_URL, ATTR_MEDIA_CONTENT_ID) if key in data}
+    return {key: data[key] for key in SOURCE_KEYS if key in data}
 
 
 async def _show_image(entity: IDotMatrixLight, call: ServiceCall) -> None:

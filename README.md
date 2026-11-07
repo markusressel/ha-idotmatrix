@@ -62,8 +62,8 @@ All actions target the light of a display.
 | Action | Purpose |
 |---|---|
 | `idotmatrix.show_text` | Text with font size, mode (marquee, blinking, ...), speed and colors. |
-| `idotmatrix.show_image` | A picture from a file, an URL or a media source, scaled to the screen (`fit`, `fill`, `stretch`). |
-| `idotmatrix.show_gif` | An animated GIF from a file, an URL or a media source. |
+| `idotmatrix.show_image` | A picture from a file, an URL, a media source or `data` (see below), scaled to the screen (`fit`, `fill`, `stretch`). |
+| `idotmatrix.show_gif` | An animated GIF from a file, an URL, a media source or `data`. |
 | `idotmatrix.start_slideshow` | The pictures of a folder (a folder of the file system or of a media source) one after another. The folder is read again every round, `recursive: true` includes its subfolders, `store: true` stores the pictures in the slots of the display instead (see below). Showing anything else ends it. |
 | `idotmatrix.stop_slideshow` | Ends the slideshow. |
 | `idotmatrix.show_clock` | The clock. Style, date, 12/24 hours and color that are not given are taken from the clock entities. |
@@ -93,6 +93,18 @@ target:
 data:
   url: "https://example.com/camera/snapshot.jpg"
   resize_mode: fill
+```
+
+`data` takes the content of an image file (PNG, JPEG, GIF, ...) as base64, for pictures that a script or another
+program draws itself, without a file Home Assistant can read or an URL. It is converted for the display like a file, so
+it is no raw data for the device, and anything that is no image is rejected before something is sent.
+
+```yaml
+action: idotmatrix.show_gif
+target:
+  entity_id: light.idm_123456
+data:
+  data: "R0lGODlh..."
 ```
 
 `show_image`, `show_gif` and `start_slideshow` can draw a text on top of the picture (`overlay_text`, with

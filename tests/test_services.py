@@ -1,7 +1,9 @@
 """Tests of the actions."""
 
 import asyncio
+import base64
 import datetime
+import io
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,6 +12,7 @@ from idotmatrix.modules.effect import EffectStyle
 from idotmatrix.modules.text import TextColorMode, TextMode
 from idotmatrix.util.image_utils import ResizeMode
 from idotmatrix.util.overlay import TextOverlay
+from PIL import Image
 import pytest
 import voluptuous as vol
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -212,6 +215,76 @@ async def test_other_commands_do_not_wait_for_the_pause(
         await asyncio.wait_for(_call(hass, "show_text", text="Hi"), timeout=2)
 
     client.text.show_text.assert_awaited_once()
+
+
+def _encoded(fmt: str, frames: int = 1) -> tuple[bytes, str]:
+    """An image file drawn in memory, and its content as base64."""
+    images = [Image.new("RGB", (8, 8), (index * 40, 0, 0)) for index in range(frames)]
+    buffer = io.BytesIO()
+    images[0].save(buffer, format=fmt, save_all=frames > 1, append_images=images[1:])
+    content = buffer.getvalue()
+    return content, base64.b64encode(content).decode()
+
+
+async def _capture_upload(mock: AsyncMock) -> dict:
+    seen = {}
+
+    async def upload(path, **kwargs):
+        seen["content"] = Path(path).read_bytes()
+        seen["path"] = path
+
+    mock.side_effect = upload
+    return seen
+
+
+async def test_show_image_from_data(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    content, encoded = _encoded("PNG")
+    seen = await _capture_upload(client.image.show_image_file)
+
+    await _call(hass, "show_image", data=encoded)
+
+    assert seen["content"] == content
+    assert not Path(seen["path"]).exists()  # the temporary file is removed
+
+
+async def test_show_gif_from_data(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    content, encoded = _encoded("GIF", frames=3)
+    seen = await _capture_upload(client.gif.upload_gif_file)
+
+    await _call(hass, "show_gif", data=encoded, duration_per_frame=50)
+
+    assert seen["content"] == content
+    assert client.gif.upload_gif_file.await_args.kwargs["duration_per_frame_in_ms"] == 50
+    assert not Path(seen["path"]).exists()
+
+
+async def test_data_has_to_be_base64(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    with pytest.raises(vol.Invalid, match="base64"):
+        await _call(hass, "show_image", data="no base64!")
+
+    client.image.show_image_file.assert_not_awaited()
+
+
+async def test_data_has_to_be_an_image(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    with pytest.raises(HomeAssistantError, match="no image file"):
+        await _call(hass, "show_gif", data=base64.b64encode(b"GIF89a but nothing else").decode())
+
+    client.gif.upload_gif_file.assert_not_awaited()
+
+
+async def test_data_is_limited_in_size(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    with (
+        patch("custom_components.idotmatrix.services.MAX_DOWNLOAD_BYTES", 10),
+        pytest.raises(vol.Invalid, match="larger"),
+    ):
+        await _call(hass, "show_image", data=_encoded("PNG")[1])
+
+    client.image.show_image_file.assert_not_awaited()
+
+
+async def test_data_is_one_source_of_many(hass: HomeAssistant, setup: MockConfigEntry) -> None:
+    with pytest.raises(vol.Invalid):
+        await _call(hass, "show_image", data=_encoded("PNG")[1], url="https://example.com/a.png")
 
 
 async def test_show_image_needs_a_source(hass: HomeAssistant, setup: MockConfigEntry) -> None:

@@ -15,6 +15,11 @@ show_image:
       selector:
         media:
           accept: ["image/*"]
+    data:
+      advanced: true
+      selector:
+        text:
+          multiline: true
     resize_mode:
       default: fit
       selector:
@@ -72,6 +77,11 @@ show_gif:
       selector:
         media:
           accept: ["image/*"]
+    data:
+      advanced: true
+      selector:
+        text:
+          multiline: true
     resize_mode:
       default: fit
       selector:
