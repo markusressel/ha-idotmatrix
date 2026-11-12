@@ -11,6 +11,7 @@ from collections.abc import Awaitable, Callable
 import os
 from typing import TYPE_CHECKING, Any
 
+from idotmatrix.modules.alarm import ALARM_SLOTS, Weekday
 from idotmatrix.modules.effect import EffectStyle
 from idotmatrix.modules.text import TextColorMode, TextMode
 from idotmatrix.util.device_material import SLOTS
@@ -43,6 +44,7 @@ RESIZE_MODES = {"fit": ResizeMode.FIT, "fill": ResizeMode.FILL, "stretch": Resiz
 TEXT_MODES = {mode.name.lower(): mode for mode in TextMode}
 TEXT_COLOR_MODES = {mode.name.lower(): mode for mode in TextColorMode}
 EFFECT_STYLES = {style.name.lower(): style for style in EffectStyle}
+WEEKDAYS = {day.name.lower()[:3]: day for day in Weekday}
 
 RGB = vol.All(vol.ExactSequence((cv.byte, cv.byte, cv.byte)), vol.Coerce(tuple))
 
@@ -343,6 +345,46 @@ async def _set_eco(entity: IDotMatrixLight, call: ServiceCall) -> None:
     await entity._device.async_apply_night_mode()
 
 
+def _alarm_settings(data: dict[str, Any]) -> dict[str, Any]:
+    """The settings of an alarm that `set_alarm` and `disable_alarm` share."""
+    return {
+        "slot": data["slot"],
+        "hour": data["time"].hour,
+        "minute": data["time"].minute,
+        "weekdays": [WEEKDAYS[day] for day in data.get("weekdays", [])],
+        "ring_duration": data["ring_duration"],
+        "buzzer": data["buzzer"],
+    }
+
+
+async def _set_alarm(entity: IDotMatrixLight, call: ServiceCall) -> None:
+    """
+    Sets an alarm with a picture, which makes the display beep when it goes off. The display shows the picture right
+    away as a preview.
+    """
+    data = call.data
+    device = entity._device
+    # the alarm only goes off at the right time if the display has the local time of Home Assistant (the library would
+    # take the time zone of the system, which is often UTC in a container)
+    await device.async_sync_time()
+    await _async_with_file(
+        entity,
+        _source_of(data),
+        lambda path: device.client.alarm.set_alarm(
+            file_path=path,
+            sync_time=False,
+            resize_mode=RESIZE_MODES[data["resize_mode"]],
+            background_color=data["background_color"],
+            **_alarm_settings(data),
+        ),
+    )
+    device.async_content_changed()
+
+
+async def _disable_alarm(entity: IDotMatrixLight, call: ServiceCall) -> None:
+    await entity._device.call(entity._device.client.alarm.disable_alarm(**_alarm_settings(call.data)))
+
+
 async def _music_sync(entity: IDotMatrixLight, call: ServiceCall) -> None:
     await entity._device.call(
         entity._device.client.music_sync.set_mic_type(call.data["scene"], sensitivity=call.data["sensitivity"])
@@ -408,7 +450,31 @@ def async_setup_services() -> None:
         _require_folder,
     )
 
+    alarm_settings = {
+        vol.Optional("slot", default=0): vol.All(vol.Coerce(int), vol.In(ALARM_SLOTS)),
+        vol.Required("time"): cv.time,
+        vol.Optional("weekdays"): vol.All(cv.ensure_list, [vol.In(WEEKDAYS)], vol.Unique()),
+        vol.Optional("ring_duration", default=10): vol.All(vol.Coerce(int), vol.Range(min=1, max=65535)),
+        vol.Optional("buzzer", default=True): cv.boolean,
+    }
+    alarm_schema = vol.All(
+        _without_empty_values,
+        cv.make_entity_service_schema(
+            {
+                **SOURCE_SCHEMA,
+                **alarm_settings,
+                vol.Optional("resize_mode", default="fit"): vol.In(RESIZE_MODES),
+                vol.Optional("background_color", default=(0, 0, 0)): RGB,
+            }
+        ),
+        _require_source,
+    )
+
     platform.async_register_entity_service("show_image", image_schema, _interrupting(_show_image))
+    platform.async_register_entity_service("set_alarm", alarm_schema, _interrupting(_set_alarm))
+    platform.async_register_entity_service(
+        "disable_alarm", vol.All(_without_empty_values, cv.make_entity_service_schema(alarm_settings)), _disable_alarm
+    )
     platform.async_register_entity_service("start_slideshow", slideshow_schema, _start_slideshow)
     platform.async_register_entity_service("stop_slideshow", {}, _stop_slideshow)
     platform.async_register_entity_service("show_gif", gif_schema, _interrupting(_show_gif))
