@@ -485,6 +485,82 @@
     "stop_slideshow": {
       "name": "Stop slideshow",
       "description": "Ends the slideshow. The display keeps showing the last picture."
+    },
+    "set_alarm": {
+      "name": "Set alarm",
+      "description": "Sets an alarm of the display with a picture. When it goes off the display shows the picture and beeps. The display shows the picture right away as a preview, and ignores new pictures for a few minutes after the alarm. Not tested on a display yet.",
+      "fields": {
+        "slot": {
+          "name": "Alarm",
+          "description": "Which of the 10 alarms of the display (0 to 9). Only alarm 0 is known to ring, 9 did not on a 16x16 display."
+        },
+        "time": {
+          "name": "Time",
+          "description": "When the alarm goes off. Seconds are ignored."
+        },
+        "weekdays": {
+          "name": "Weekdays",
+          "description": "The days the alarm repeats on. Once if none are chosen."
+        },
+        "ring_duration": {
+          "name": "Ring duration",
+          "description": "How long the alarm rings, in seconds. The official app offers 10, 30, 60, 300 and 900."
+        },
+        "buzzer": {
+          "name": "Buzzer",
+          "description": "Whether the display beeps while the alarm rings."
+        },
+        "path": {
+          "name": "File path",
+          "description": "Path of a picture or GIF shown while the alarm rings. Its folder must be listed in allowlist_external_dirs."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Address of an image to download. A path like /api/media_player_proxy/... (f.e. the cover of a media player) is loaded from Home Assistant itself."
+        },
+        "media_content_id": {
+          "name": "Media",
+          "description": "A picture from a media source of Home Assistant."
+        },
+        "data": {
+          "name": "Image data",
+          "description": "The content of an image file (PNG, JPEG, GIF, ...) as base64, f.e. a picture that an automation drew. It is converted for the display like a file."
+        },
+        "resize_mode": {
+          "name": "Resize mode",
+          "description": "Fit keeps the whole picture (with a background), fill crops it to cover the screen, stretch distorts it."
+        },
+        "background_color": {
+          "name": "Background color",
+          "description": "Color for transparent pixels and bars."
+        }
+      }
+    },
+    "disable_alarm": {
+      "name": "Disable alarm",
+      "description": "Switches an alarm of the display off. Pass the settings the alarm was set with, it is not known whether the display needs them. Not tested on a display yet.",
+      "fields": {
+        "slot": {
+          "name": "Alarm",
+          "description": "Which of the 10 alarms of the display (0 to 9). Only alarm 0 is known to ring, 9 did not on a 16x16 display."
+        },
+        "time": {
+          "name": "Time",
+          "description": "When the alarm goes off. Seconds are ignored."
+        },
+        "weekdays": {
+          "name": "Weekdays",
+          "description": "The days the alarm repeats on. Once if none are chosen."
+        },
+        "ring_duration": {
+          "name": "Ring duration",
+          "description": "How long the alarm rings, in seconds. The official app offers 10, 30, 60, 300 and 900."
+        },
+        "buzzer": {
+          "name": "Buzzer",
+          "description": "Whether the display beeps while the alarm rings."
+        }
+      }
     }
   },
   "selector": {
@@ -566,6 +642,17 @@
         "bottom-left": "Bottom left",
         "bottom-center": "Bottom center",
         "bottom-right": "Bottom right"
+      }
+    },
+    "weekday": {
+      "options": {
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday"
       }
     }
   }

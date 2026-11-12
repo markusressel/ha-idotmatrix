@@ -388,3 +388,99 @@ stop_slideshow:
     entity:
       integration: idotmatrix
       domain: light
+set_alarm:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light
+  fields:
+    slot:
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 9
+          mode: box
+    time:
+      required: true
+      selector:
+        time:
+    weekdays:
+      selector:
+        select:
+          translation_key: weekday
+          multiple: true
+          options: [mon, tue, wed, thu, fri, sat, sun]
+    ring_duration:
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 65535
+          mode: box
+          unit_of_measurement: s
+    buzzer:
+      default: true
+      selector:
+        boolean:
+    path:
+      selector:
+        text:
+    url:
+      selector:
+        text:
+          type: url
+    media_content_id:
+      selector:
+        media:
+          accept: ["image/*"]
+    data:
+      advanced: true
+      selector:
+        text:
+          multiline: true
+    resize_mode:
+      default: fit
+      selector:
+        select:
+          translation_key: resize_mode
+          options: [fit, fill, stretch]
+    background_color:
+      default: [0, 0, 0]
+      selector:
+        color_rgb:
+disable_alarm:
+  target:
+    entity:
+      integration: idotmatrix
+      domain: light
+  fields:
+    slot:
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 9
+          mode: box
+    time:
+      required: true
+      selector:
+        time:
+    weekdays:
+      selector:
+        select:
+          translation_key: weekday
+          multiple: true
+          options: [mon, tue, wed, thu, fri, sat, sun]
+    ring_duration:
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 65535
+          mode: box
+          unit_of_measurement: s
+    buzzer:
+      default: true
+      selector:
+        boolean:

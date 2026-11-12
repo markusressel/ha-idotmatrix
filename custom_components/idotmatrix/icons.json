@@ -96,6 +96,12 @@
     },
     "music_sync": {
       "service": "mdi:music"
+    },
+    "set_alarm": {
+      "service": "mdi:alarm"
+    },
+    "disable_alarm": {
+      "service": "mdi:alarm-off"
     }
   }
 }

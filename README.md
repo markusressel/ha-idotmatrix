@@ -74,6 +74,8 @@ All actions target the light of a display.
 | `idotmatrix.set_pixels` | Colors single pixels. |
 | `idotmatrix.set_eco` | The night mode: dims the display between two times. Updates the night mode entities. |
 | `idotmatrix.music_sync` | Music sync with the microphone of the display and its sensitivity. |
+| `idotmatrix.set_alarm` | An alarm with a picture: the display shows it and beeps when the alarm goes off (see below). |
+| `idotmatrix.disable_alarm` | Switches an alarm off. |
 
 ```yaml
 action: idotmatrix.show_text
@@ -105,6 +107,22 @@ target:
   entity_id: light.idm_123456
 data:
   data: "R0lGODlh..."
+```
+
+The display can only beep through an alarm: `set_alarm` sets one (once, or on `weekdays`) with a picture that is shown
+while it rings. The display shows the picture right away as a preview, and ignores new pictures for a few minutes
+after the alarm went off. Only alarm (`slot`) 0 is known to ring. This is new and not tested on a display yet, please
+report how it works for you.
+
+```yaml
+action: idotmatrix.set_alarm
+target:
+  entity_id: light.idm_123456
+data:
+  time: "07:30:00"
+  weekdays: [mon, tue, wed, thu, fri]
+  ring_duration: 30
+  path: /config/www/alarm.gif
 ```
 
 `show_image`, `show_gif` and `start_slideshow` can draw a text on top of the picture (`overlay_text`, with
@@ -168,7 +186,7 @@ Local files have to be in a folder that is listed in
 
 ```sh
 uv venv --python 3.14
-uv pip install -r requirements_test.txt idotmatrix-api-client==1.0.0   # or -e ../idotmatrix-api-client
+uv pip install -r requirements_test.txt idotmatrix-api-client==1.1.0   # or -e ../idotmatrix-api-client
 uv run --no-sync python -m pytest
 ```
 

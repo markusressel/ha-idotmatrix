@@ -7,6 +7,7 @@ import io
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from idotmatrix.modules.alarm import Weekday
 from idotmatrix.modules.clock import ClockStyle
 from idotmatrix.modules.effect import EffectStyle
 from idotmatrix.modules.text import TextColorMode, TextMode
@@ -761,3 +762,54 @@ async def test_picture_that_arrives_in_pieces_is_complete(
         await _call(hass, "show_image", url="https://example.com/a.png")
 
     assert seen["content"] == b"0123456789"
+
+
+async def test_set_alarm(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    client.common.get_device_info.reset_mock()
+    with patch("custom_components.idotmatrix.services.async_fetch", AsyncMock(return_value=("/tmp/a.gif", False))):
+        await _call(
+            hass, "set_alarm", url="https://example.com/a.gif", time="07:30:00", weekdays=["mon", "fri"],
+            ring_duration=30, buzzer=False,
+        )
+
+    # the time of Home Assistant is set first, not the one of the system the library would take
+    client.common.get_device_info.assert_awaited_once()
+    client.alarm.set_alarm.assert_awaited_once_with(
+        file_path="/tmp/a.gif",
+        sync_time=False,
+        resize_mode=ResizeMode.FIT,
+        background_color=(0, 0, 0),
+        slot=0,
+        hour=7,
+        minute=30,
+        weekdays=[Weekday.MONDAY, Weekday.FRIDAY],
+        ring_duration=30,
+        buzzer=False,
+    )
+
+
+async def test_set_alarm_defaults(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    with patch("custom_components.idotmatrix.services.async_fetch", AsyncMock(return_value=("/tmp/a.png", False))):
+        await _call(hass, "set_alarm", url="https://example.com/a.png", time="21:18:00")
+
+    kwargs = client.alarm.set_alarm.await_args.kwargs
+    assert (kwargs["slot"], kwargs["weekdays"], kwargs["ring_duration"], kwargs["buzzer"]) == (0, [], 10, True)
+
+
+async def test_set_alarm_needs_a_picture_and_a_time(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    with pytest.raises(vol.Invalid):
+        await _call(hass, "set_alarm", time="07:30:00")
+    with pytest.raises(vol.Invalid):
+        await _call(hass, "set_alarm", url="https://example.com/a.gif")
+    with pytest.raises(vol.Invalid):
+        await _call(hass, "set_alarm", url="https://example.com/a.gif", time="07:30:00", slot=10)
+
+    client.alarm.set_alarm.assert_not_awaited()
+
+
+async def test_disable_alarm(hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock) -> None:
+    await _call(hass, "disable_alarm", slot=2, time="06:05:00", weekdays=["sun"], ring_duration=900)
+
+    client.alarm.disable_alarm.assert_awaited_once_with(
+        slot=2, hour=6, minute=5, weekdays=[Weekday.SUNDAY], ring_duration=900, buzzer=True
+    )
