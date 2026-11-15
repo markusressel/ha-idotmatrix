@@ -48,6 +48,9 @@ tests/               pytest-homeassistant-custom-component, the library client i
 - **Errors:** wrap library calls with `IDotMatrixDevice.call()`, which turns library errors into `HomeAssistantError`
   with a translated message and handles the idle timer.
 - **One connection only:** the display accepts one Bluetooth connection (also the one of the phone app).
+- **Availability:** the entities are unavailable while the display is neither connected nor seen by a scanner
+  (`bluetooth.async_track_unavailable`), e.g. without power, so automations notice when it comes back. A connected
+  display stops advertising, so losing it in the scanners alone does not make it unavailable.
 
 ## Conventions
 

@@ -77,6 +77,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: IDotMatrixConfigEntry) -
         )
     )
 
+    @callback
+    def _async_unavailable(_service_info: bluetooth.BluetoothServiceInfoBleak) -> None:
+        """No scanner sees the display anymore, e.g. it lost its power: its entities become unavailable."""
+        device.async_gone()
+
+    entry.async_on_unload(bluetooth.async_track_unavailable(hass, _async_unavailable, address, connectable=True))
+
     async def _on_connected() -> None:
         """The clock of the display is set on every connection, as the official app does it."""
         try:

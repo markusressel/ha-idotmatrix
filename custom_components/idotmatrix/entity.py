@@ -39,6 +39,11 @@ class IDotMatrixEntity(RestoreEntity, Entity):
             self._restore(last_state)
         self.async_on_remove(self._device.add_listener(self._handle_state_changed))
 
+    @property
+    def available(self) -> bool:
+        """Unavailable while the display can not be reached, e.g. without power."""
+        return self._device.available
+
     def _restore(self, last_state) -> None:
         """Restores the entity from the last state. Entities that keep state override it."""
 

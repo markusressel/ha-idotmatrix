@@ -81,6 +81,8 @@ class IDotMatrixDevice:
         # the UTC offset of the time that was sent to the display last, to notice a switch of summer and winter time
         self._synced_utc_offset: timedelta | None = None
         self._connected = False
+        # whether a Bluetooth adapter or proxy sees the display (it was found at the start, or this would fail)
+        self._present = True
         # the task that shows the pictures of a slideshow, as long as there is one
         self.slideshow: asyncio.Task | None = None
 
@@ -160,6 +162,26 @@ class IDotMatrixDevice:
     def update_ble_device(self, ble_device: BLEDevice) -> None:
         """The scanners found the device again, possibly through another adapter or proxy."""
         self.client.set_ble_device(ble_device)
+        self._set_present(True)
+
+    @callback
+    def async_gone(self) -> None:
+        """No scanner has seen the display for a while: it has no power, or it is out of reach."""
+        self._set_present(False)
+
+    @property
+    def available(self) -> bool:
+        """
+        Whether the display can be reached. A connected display stops advertising, so the scanners lose it while it
+        is connected: it is only unavailable when it is neither seen nor connected.
+        """
+        return self._present or self._connected
+
+    def _set_present(self, present: bool) -> None:
+        was_available = self.available
+        self._present = present
+        if self.available != was_available:
+            self.async_state_changed()
 
     async def async_disconnect(self) -> None:
         """Closes the connection."""
@@ -169,13 +191,18 @@ class IDotMatrixDevice:
 
     async def _on_connected(self) -> None:
         _LOGGER.debug("Connected to %s", self.address)
+        was_available = self.available
         self._connected = True
+        if not was_available:
+            self.async_state_changed()
         for listener in self._connected_listeners:
             await listener()
 
     async def _on_disconnected(self) -> None:
         _LOGGER.debug("Disconnected from %s", self.address)
         self._connected = False
+        if not self.available:
+            self.async_state_changed()
 
     def add_connected_listener(self, listener: Callable[[], Awaitable[Any]]) -> CALLBACK_TYPE:
         """Calls the listener every time a connection was made."""
@@ -333,6 +360,6 @@ class IDotMatrixDevice:
 
     @callback
     def async_state_changed(self) -> None:
-        """Tells the entities that the assumed state changed."""
+        """Tells the entities that the assumed state or the availability changed."""
         for listener in list(self._listeners):
             listener()
