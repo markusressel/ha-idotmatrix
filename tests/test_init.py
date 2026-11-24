@@ -9,6 +9,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry, async_
 
 from custom_components.idotmatrix.const import DOMAIN
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.util import dt as dt_util
@@ -96,3 +97,52 @@ async def test_time_is_set_again_when_the_utc_offset_changes(
     async_fire_time_changed(hass, now + timedelta(minutes=2))
     await hass.async_block_till_done()
     client.common.get_device_info.assert_not_awaited()
+
+
+async def test_entities_are_unavailable_while_no_scanner_sees_the_display(
+    hass: HomeAssistant, config_entry: MockConfigEntry, client: MagicMock, reachable: None, ble_device
+) -> None:
+    config_entry.add_to_hass(hass)
+    with patch("custom_components.idotmatrix.bluetooth.async_track_unavailable") as track_unavailable:
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+    on_unavailable = track_unavailable.call_args.args[1]
+    assert track_unavailable.call_args.args[2] == ADDRESS
+    assert hass.states.get(LIGHT).state != STATE_UNAVAILABLE
+
+    on_unavailable(MagicMock())
+    await hass.async_block_till_done()
+    assert hass.states.get(LIGHT).state == STATE_UNAVAILABLE
+
+    config_entry.runtime_data.update_ble_device(ble_device)
+    await hass.async_block_till_done()
+    assert hass.states.get(LIGHT).state != STATE_UNAVAILABLE
+    client.set_ble_device.assert_called_with(ble_device)
+
+
+async def test_a_connected_display_stays_available_when_the_scanners_lose_it(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock
+) -> None:
+    """A connected display stops advertising, so the scanners lose it while it works."""
+    listener = client.add_connection_listener.call_args.args[0]
+    await listener.on_connected()
+
+    setup.runtime_data.async_gone()
+    await hass.async_block_till_done()
+    assert hass.states.get(LIGHT).state != STATE_UNAVAILABLE
+
+    await listener.on_disconnected()
+    await hass.async_block_till_done()
+    assert hass.states.get(LIGHT).state == STATE_UNAVAILABLE
+
+
+async def test_a_connection_makes_the_display_available(
+    hass: HomeAssistant, setup: MockConfigEntry, client: MagicMock
+) -> None:
+    setup.runtime_data.async_gone()
+    await hass.async_block_till_done()
+
+    await client.add_connection_listener.call_args.args[0].on_connected()
+    await hass.async_block_till_done()
+
+    assert hass.states.get(LIGHT).state != STATE_UNAVAILABLE
